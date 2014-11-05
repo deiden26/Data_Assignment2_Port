@@ -267,27 +267,6 @@ print << 'HTML';
 </head>
 
 <body>
-  <!-- Menu bar -->
-  <div class="fixed top-bar-bottom-border">
-    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
-      <ul class="title-area">
-        <li class="name">
-          <h1 class="nav-title">
-            <a href="#" class="nav-title">Gobias</a>
-        </li>
-        <li class="toggle-topbar menu-icon">
-          <a href="#"><span></span></a>
-        </li>
-      </ul>
-      <section class="top-bar-section">
-        <ul class="right">
-          <li>
-            <a href="portfolio.pl?act=logout">Logout</a>
-          </li>
-        </ul>
-      </section>
-    </nav>
-  </div>
   
 HTML
 
@@ -310,6 +289,18 @@ if ($action eq "login")
   if (defined $logincomplain or !$run)
   { 
     print << "HTML";
+
+    <!-- Menu bar -->
+    <div class="fixed top-bar-bottom-border">
+      <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
+        <ul class="title-area">
+          <li class="name">
+            <h1 class="nav-title">
+              <a href="#" class="nav-title">Gobias</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
 
     <!-- Login Form -->
     <br>
@@ -345,7 +336,63 @@ HTML
 #
 elsif ($action eq "list")
 { 
-  print "Nothing to see here";
+
+  print << "HTML";
+
+  <!-- Menu bar -->
+  <div class="fixed top-bar-bottom-border">
+    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
+      <ul class="title-area">
+        <li class="name">
+          <h1 class="nav-title">
+            <a href="#" class="nav-title">Gobias</a>
+        </li>
+        <li class="toggle-topbar menu-icon">
+          <a href="#"><span></span></a>
+        </li>
+      </ul>
+      <section class="top-bar-section">
+        <ul class="right">
+          <li>
+            <a href="portfolio.pl?act=logout">Logout</a>
+          </li>
+        </ul>
+      </section>
+    </nav>
+  </div>
+
+HTML
+
+  my ($str,$error) = getPortfolios($user,"table");
+  if(!$error)
+  {
+    print << "HTML";
+
+    <!-- Portfolios table -->
+
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Your Portfolios</h2>
+        $str
+      </div>
+    </div>
+
+HTML
+  }
+  else
+  {
+    print << "HTML";
+
+    <!-- Error message -->
+
+    <div class="row">
+      <div class="large-12 column">
+        <small class ="error">There was an error retrieving your portfolios</small>
+      </div>
+    </div>
+
+HTML
+  }
 }
 
 else
@@ -370,6 +417,33 @@ HTML
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 
+sub getPortfolios
+{
+  my ($user, $format) = @_;
+  my @rows;
+  eval
+  {
+    @rows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+  };
+  if ($@)
+  { 
+    return (undef,$@);
+  } 
+  else
+  {
+    if ($format eq "table")
+    { 
+      return (MakeTable("Portfolios", "2D",
+      ["Name", "Cash Value"],
+      @rows),$@);
+    }
+    else 
+    {
+      return (MakeRaw("individual_data","2D",@rows),$@);
+    }
+  }
+}
+
 #
 # Check to see if user and password combination exist
 #
@@ -377,7 +451,7 @@ HTML
 #
 sub Login_Register
 {
-  my ($user,$password,$submitType)=@_;
+  my $submitType = pop @_;
   if ($submitType eq "Login")
   {
     my @col;
