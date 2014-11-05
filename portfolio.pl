@@ -97,10 +97,10 @@ my $debug = 0;
   $debug = param("debug");
  }
 
+
 #
-#
-# Who is this?  Use the cookie or anonymous credentials
-#
+# Determine if the user is logged in
+# If the user is logged in, they can get to all actions
 #
 
 if (defined($inputcookiecontent))
@@ -112,21 +112,35 @@ if (defined($inputcookiecontent))
   # Now route based on request
   if (defined(param("act")))
   { 
-    $action=param("act");
-    if (defined(param("run")))
-    { 
-      $run = param("run") == 1;
-    }
-    else
-    {
-      $run = 0;
-    }
-  } 
+    $action = param("act");
+  }
+  # if no action was given, take the user to the list of their portfolios
+  else
+  {
+    $action= "list";
+  }
 }
+
+#
+# If the user isn't logged in, they can get only get to login
+#
 
 else
 {
   $action="login";
+  $run = 0;
+}
+
+#
+# Determine if a user is trying to run a process or just view a page
+#
+
+if (defined(param("run")))
+{ 
+  $run = param("run") == 1;
+}
+else
+{
   $run = 0;
 }
 
@@ -286,27 +300,33 @@ HTML
 #
 if ($action eq "login")
 { 
+  my $showError = 'none;';
   if ($logincomplain)
   { 
-    print "Login failed. Please try again."
+    $showError = 'inline;';
   }
 
   if ($logincomplain or !$run)
   { 
-    print << 'HTML';
+    print << "HTML";
 
     <!-- Login Form -->
+    <br>
     <div class="row">
       <h2>Welcome to Gobias Portfolio Manager</h2>
       <div class="large-12 column">
-      <form id='Login'>
-        Email<input type="text" name="user">
-        <br>
-        Password<input type="text" name="password">
+      <form action="portfolio.pl" method="get">
         <input type="hidden" name="act" value="login">
         <input type="hidden" name="run" value="1">
-        <input type="submit" value="Register" class="button" style="float:left;">
-        <input type="submit" value="Login" class="button" style="float:right;">
+        Email<input type="text" name="user">
+        <br>
+        Password<input type="password" name="password" class="error">
+        <small class="error" style="display:$showError">Login failed. Please try again</small>
+        <br><br>
+        <div style="position: static;">
+          <input type="submit" value="Register" class="button" style="float:left;">
+          <input type="submit" value="Login" class="button" style="float:right;">
+        </div>
       <form>
     </div>
     </div>
@@ -349,6 +369,28 @@ HTML
 # The remainder includes utilty and other functions
 #
 
+
+#
+#
+# Check to see if user and password combination exist
+#
+# $ok = ValidUser($user,$password)
+#
+#
+sub ValidUser
+{
+  my ($user,$password)=@_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_users where email=? and password=?","COL",$user,$password);};
+  if ($@)
+  { 
+    return 0;
+  }
+  else
+  {
+    return $col[0]>0;
+  }
+}
 
 
 #
