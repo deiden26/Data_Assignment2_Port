@@ -77,7 +77,7 @@ my $outputcookiecontent = undef;
 my $deletecookie=0;
 my $user = undef;
 my $password = undef;
-my $logincomplain=0;
+my $logincomplain= undef;
 
 #
 # Get the user action and whether he just wants the form or wants us to
@@ -158,9 +158,18 @@ if ($action eq "login") {
     # Ignore any input cookie.  Just validate user and
     # generate the right output cookie, if any.
     #
-    ($user,$password) = (param('user'),param('password'));
-    if (ValidUser($user,$password))
+    my $submitType;
+    ($user,$password,$submitType) = (param('user'),param('password'),param('submitType'));
+    $logincomplain = Login_Register($user,$password,$submitType);
+    if (defined $logincomplain)
     { 
+      # uh oh.  Bogus login attempt.  Make him try again.
+      # don't give him a cookie
+      $action="login";
+      $run = 0;
+    }
+    else
+    {
       # if the user's info is OK, then give him a cookie
       # that contains his username and password 
       # the cookie will expire in one hour, forcing him to log in again
@@ -169,14 +178,6 @@ if ($action eq "login") {
       $outputcookiecontent=join("/",$user,$password);
       $action = "list";
       $run = 1;
-    }
-    else
-    {
-      # uh oh.  Bogus login attempt.  Make him try again.
-      # don't give him a cookie
-      $logincomplain=1;
-      $action="login";
-      $run = 0;
     }
   }
   else
@@ -301,12 +302,12 @@ HTML
 if ($action eq "login")
 { 
   my $showError = 'none;';
-  if ($logincomplain)
+  if (defined $logincomplain)
   { 
     $showError = 'inline;';
   }
 
-  if ($logincomplain or !$run)
+  if (defined $logincomplain or !$run)
   { 
     print << "HTML";
 
@@ -315,20 +316,20 @@ if ($action eq "login")
     <div class="row">
       <h2>Welcome to Gobias Portfolio Manager</h2>
       <div class="large-12 column">
-      <form action="portfolio.pl" method="get">
-        <input type="hidden" name="act" value="login">
-        <input type="hidden" name="run" value="1">
-        Email<input type="text" name="user">
-        <br>
-        Password<input type="password" name="password" class="error">
-        <small class="error" style="display:$showError">Login failed. Please try again</small>
-        <br><br>
-        <div style="position: static;">
-          <input type="submit" value="Register" class="button" style="float:left;">
-          <input type="submit" value="Login" class="button" style="float:right;">
-        </div>
-      <form>
-    </div>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="login">
+          <input type="hidden" name="run" value="1">
+          Email<input type="text" name="user">
+          <br>
+          Password<input type="password" name="password" class="error">
+          <small class="error" style="display:$showError">$logincomplain</small>
+          <br><br>
+          <div style="position: static;">
+            <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
+            <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
+          </div>
+        <form>
+      </div>
     </div>
 
 HTML
@@ -371,24 +372,38 @@ HTML
 
 
 #
-#
 # Check to see if user and password combination exist
 #
 # $ok = ValidUser($user,$password)
 #
-#
-sub ValidUser
+sub Login_Register
 {
-  my ($user,$password)=@_;
-  my @col;
-  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_users where email=? and password=?","COL",$user,$password);};
-  if ($@)
-  { 
-    return 0;
+  my ($user,$password,$submitType)=@_;
+  if ($submitType eq "Login")
+  {
+    my @col;
+    eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_users where email=? and password=?","COL",$user,$password);};
+    if($@ or $col[0]<=0)
+    {
+      return "There was a problem when logging in. Please try again"
+    }
+    else
+    {
+      return;
+    }
   }
   else
   {
-    return $col[0]>0;
+    my ($user,$password)=@_;
+    eval {ExecSQL($dbuser,$dbpasswd, "insert into port_users (email, password) values (?,?)",undef,$user,$password);};
+    if($@)
+    {
+      return "There was a problem when registering. Please try again"
+    }
+    else
+    {
+      return;
+    }
   }
 }
 
