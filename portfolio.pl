@@ -1,11 +1,8 @@
 #!/usr/bin/perl -w
 
-
-#
-# database input and output is paired into the two arrays noted
-#
-my @sqlinput=();
-my @sqloutput=();
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Use Statements
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 #
 # The combination of -w and use strict enforces various 
@@ -37,6 +34,13 @@ use CGI qw(:standard);
 # Oracle.
 use DBI;
 
+
+#
+# database input and output is paired into the two arrays noted
+#
+my @sqlinput=();
+my @sqloutput=();
+
 #
 #
 # A module that makes it easy to parse relatively freeform
@@ -44,7 +48,9 @@ use DBI;
 #
 use Time::ParseDate;
 
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Global Variables
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 #
 # You need to override these for access to your database
@@ -73,6 +79,7 @@ my $inputcookiecontent = cookie($cookiename);
 #
 # Will be filled in as we process the cookies and paramters
 #
+my @outputcookies;
 my $outputcookiecontent = undef;
 my $deletecookie=0;
 my $user = undef;
@@ -88,19 +95,26 @@ my $run;
 my $debug = 0;
 
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Debugging Mode Switch
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
 #
 # Check for debugging mode
 #
 
- if (defined(param("debug")))
- {
+if (defined(param("debug")))
+{
   $debug = param("debug");
- }
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Routing based on Cookie and request content
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 
 #
 # Determine if the user is logged in
-# If the user is logged in, they can get to all actions
 #
 
 if (defined($inputcookiecontent))
@@ -143,6 +157,10 @@ else
 {
   $run = 0;
 }
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Login / Logout Logic (up here because of cookie generation)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 
 #
@@ -202,24 +220,18 @@ if ($action eq "logout")
   $action = "login";
   $user = undef;
   $password = undef;
-  $run = 1;
+  $run = 0;
 }
 
-my @outputcookies;
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Cookie Management
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-#
-# OK, so now we have user/password
-# and we *may* have an output cookie.   If we have a cookie, we'll send it right 
-# back to the user.
-#
-# We force the expiration date on the generated page to be immediate so
-# that the browsers won't cache it.
-#
 if (defined($outputcookiecontent))
 { 
   my $cookie=cookie(-name=>$cookiename,
-		    -value=>$outputcookiecontent,
-		    -expires=>($deletecookie ? '-1h' : '+1h'));
+        -value=>$outputcookiecontent,
+        -expires=>($deletecookie ? '-1h' : '+1h'));
   push @outputcookies, $cookie;
 } 
 
@@ -227,16 +239,12 @@ if (defined($outputcookiecontent))
 #
 # Headers and cookies sent back to client
 #
-# The page immediately expires so that it will be refetched if the
-# client ever needs to update it
-#
+
 print header(-expires=>'now', -cookie=>\@outputcookies);
 
-#
-# Now we finally begin generating back HTML
-#
-#
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# HTML Generation
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 print << 'HTML';
 
@@ -274,7 +282,7 @@ print << 'HTML';
       <section class="top-bar-section">
         <ul class="right">
           <li>
-            <a href="#">Some Thing</a>
+            <a href="portfolio.pl?act=logout">Logout</a>
           </li>
         </ul>
       </section>
@@ -283,14 +291,6 @@ print << 'HTML';
   
 HTML
 
-
-#
-#
-# The remainder here is essentially a giant switch statement based
-# on $action. 
-#
-#
-#
 
 
 # LOGIN
@@ -325,8 +325,8 @@ if ($action eq "login")
           <small class="error" style="display:$showError">$logincomplain</small>
           <br><br>
           <div style="position: static;">
-            <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
             <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
+            <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
           </div>
         <form>
       </div>
@@ -335,7 +335,6 @@ if ($action eq "login")
 HTML
   }
 }
-
 
 
 #
@@ -365,10 +364,10 @@ print << 'HTML';
 
 HTML
 
-#
-# The main line is finished at this point. 
-# The remainder includes utilty and other functions
-#
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Sub Routines
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 
 #
