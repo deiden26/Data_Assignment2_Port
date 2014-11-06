@@ -604,6 +604,11 @@ sub deletePortfolio
   {
     return "Incorrect password. Please try again";
   }
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_portfolio where name=? and email=?","COL",$name,$user);};
+  if($@ or $col[0]<=0)
+  {
+    return "No portfolio with that name exists. Please try again.";
+  }
 
   eval {ExecSQL($dbuser,$dbpasswd, "delete from port_portfolio where name=? and email=?",undef,$name,$user);};
   if($@)
