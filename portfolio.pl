@@ -48,6 +48,11 @@ my @sqloutput=();
 #
 use Time::ParseDate;
 
+#
+# Tests if a scalar is a number
+#
+use Scalar::Util qw(looks_like_number);
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Global Variables
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -84,7 +89,12 @@ my $outputcookiecontent = undef;
 my $deletecookie=0;
 my $user = undef;
 my $password = undef;
-my $logincomplain= undef;
+
+#
+# Used for displaying form completion errors
+#
+my $formError= undef;
+my $showError = 'none';
 
 #
 # Get the user action and whether he just wants the form or wants us to
@@ -159,7 +169,7 @@ else
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# Login / Logout Logic (up here because of cookie generation)
+# Login / Logout Logic
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 
@@ -178,11 +188,12 @@ if ($action eq "login") {
     #
     my $submitType;
     ($user,$password,$submitType) = (param('user'),param('password'),param('submitType'));
-    $logincomplain = Login_Register($user,$password,$submitType);
-    if (defined $logincomplain)
+    $formError = Login_Register($user,$password,$submitType);
+    if (defined $formError)
     { 
       # uh oh.  Bogus login attempt.  Make him try again.
       # don't give him a cookie
+      $showError = 'inline';
       $action="login";
       $run = 0;
     }
@@ -224,6 +235,21 @@ if ($action eq "logout")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# addPortfolio Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "addPortfolio")
+{
+  $formError = addPortfolio(param('name'),$user,param('cash'));
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "list";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -259,6 +285,9 @@ print << 'HTML';
   <link rel="stylesheet" href="foundation-5/css/normalize.css">
   <link rel="stylesheet" href="foundation-5/css/foundation.min.css">
 
+  <!-- CSS for Portfolio -->
+  <link rel="stylesheet" href="portfolio.css">
+
   <!-- Javascript needed for foundation -->
   <script src="foundation-5/js/modernizr.js"></script>
 
@@ -280,13 +309,7 @@ HTML
 #
 if ($action eq "login")
 { 
-  my $showError = 'none;';
-  if (defined $logincomplain)
-  { 
-    $showError = 'inline;';
-  }
-
-  if (defined $logincomplain or !$run)
+  if (!$run)
   { 
     print << "HTML";
 
@@ -302,6 +325,13 @@ if ($action eq "login")
       </nav>
     </div>
 
+    <!-- Error Message -->
+    <div style="display:$showError;">
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+    </div>
+
     <!-- Login Form -->
     <br>
     <div class="row">
@@ -310,15 +340,14 @@ if ($action eq "login")
         <form action="portfolio.pl" method="get">
           <input type="hidden" name="act" value="login">
           <input type="hidden" name="run" value="1">
-          Email<input type="text" name="user">
+          Email
+          <input type="text" name="user">
           <br>
-          Password<input type="password" name="password" class="error">
-          <small class="error" style="display:$showError">$logincomplain</small>
+          Password
+          <input type="password" name="password" class="error">
           <br><br>
-          <div style="position: static;">
-            <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
-            <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
-          </div>
+          <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
+          <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
         <form>
       </div>
     </div>
@@ -354,11 +383,41 @@ elsif ($action eq "list")
       <section class="top-bar-section">
         <ul class="right">
           <li>
+            <a href="#" data-reveal-id="addPortfolio">Create Portfolio</a>
+          </li>
+          <li>
             <a href="portfolio.pl?act=logout">Logout</a>
           </li>
         </ul>
       </section>
     </nav>
+  </div>
+
+  <!-- Error Message -->
+  <div style="display:$showError;">
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+  </div>
+
+  <!-- Add Portfolio -->
+  <div id="addPortfolio" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Create a Portfolio</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="addPortfolio">
+          <input type="hidden" name="run" value="1">
+          Name
+          <input type="text" name="name">
+          Initial Cash Value
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Create" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
   </div>
 
 HTML
@@ -369,7 +428,7 @@ HTML
     print << "HTML";
 
     <!-- Portfolios table -->
-
+    <br>
     <div class="row">
       <div class="large-12 column">
         <h2>Your Portfolios</h2>
@@ -384,11 +443,10 @@ HTML
     print << "HTML";
 
     <!-- Error message -->
-
-    <div class="row">
-      <div class="large-12 column">
-        <small class ="error">There was an error retrieving your portfolios</small>
-      </div>
+    <div>
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
     </div>
 
 HTML
@@ -416,6 +474,33 @@ HTML
 # Sub Routines
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+
+#
+# Add a new portfolio for a user
+#
+
+sub addPortfolio
+{
+  my ($name, $user, $cash) = @_;
+  if (!looks_like_number($cash))
+  {
+    return "Please enter a pure numeric value for \"Initial Cash Value\"";
+  }
+
+  eval {ExecSQL($dbuser,$dbpasswd, "insert into port_portfolio (name, email, cash) values (?,?,?)",undef,$name,$user,$cash);};
+  if($@)
+  {
+    return "There was a problem when creating a portfolio. Please try again";
+  }
+  else
+  {
+    return;
+  }
+}
+
+#
+# Retrieve portfolio list for the list page
+#
 
 sub getPortfolios
 {
@@ -458,7 +543,7 @@ sub Login_Register
     eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_users where email=? and password=?","COL",$user,$password);};
     if($@ or $col[0]<=0)
     {
-      return "There was a problem when logging in. Please try again"
+      return "There was a problem when logging in. Please try again";
     }
     else
     {
@@ -471,7 +556,7 @@ sub Login_Register
     eval {ExecSQL($dbuser,$dbpasswd, "insert into port_users (email, password) values (?,?)",undef,$user,$password);};
     if($@)
     {
-      return "There was a problem when registering. Please try again"
+      return "There was a problem when registering. Please try again";
     }
     else
     {
