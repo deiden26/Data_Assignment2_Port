@@ -250,6 +250,21 @@ if ($action eq "addPortfolio")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# deletePortfolio Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "deletePortfolio")
+{
+  $formError = deletePortfolio(param('name'),$user,param('password'));
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "list";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -383,6 +398,9 @@ elsif ($action eq "list")
       <section class="top-bar-section">
         <ul class="right">
           <li>
+            <a href="#" data-reveal-id="deletePortfolio">Delete Portfolio</a>
+          </li>
+          <li>
             <a href="#" data-reveal-id="addPortfolio">Create Portfolio</a>
           </li>
           <li>
@@ -414,6 +432,26 @@ elsif ($action eq "list")
           <input type="text" name="cash">
           <br><br>
           <input type="submit" value="Create" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Delete Portfolio -->
+  <div id="deletePortfolio" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Delete a Portfolio</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="deletePortfolio">
+          <input type="hidden" name="run" value="1">
+          Name
+          <input type="text" name="name">
+          Password
+          <input type="password" name="password">
+          <br><br>
+          <input type="submit" value="Delete" class="button" style="float:right;">
         </form>
       </div>
     </div>
@@ -474,6 +512,30 @@ HTML
 # Sub Routines
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
+#
+# Delete a portfolio for a user
+#
+
+sub deletePortfolio
+{
+  my ($name, $user, $password) = @_;
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_users where email=? and password=?","COL",$user,$password);};
+  if($@ or $col[0]<=0)
+  {
+    return "Incorrect password. Please try again";
+  }
+
+  eval {ExecSQL($dbuser,$dbpasswd, "delete from port_portfolio where name=? and email=?",undef,$name,$user);};
+  if($@)
+  {
+    return "There was a problem when deleting a portfolio. Please try again";
+  }
+  else
+  {
+    return;
+  }
+}
 
 #
 # Add a new portfolio for a user
