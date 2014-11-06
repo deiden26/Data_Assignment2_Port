@@ -265,6 +265,21 @@ if ($action eq "deletePortfolio")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# transferMoney Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "transferMoney")
+{
+  $formError = transferMoney(param('nameMinus'),param('namePlus'),$user,param('cash'));
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "list";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -398,6 +413,9 @@ elsif ($action eq "list")
       <section class="top-bar-section">
         <ul class="right">
           <li>
+            <a href="#" data-reveal-id="transferMoney">Transfer Money</a>
+          </li>
+          <li>
             <a href="#" data-reveal-id="deletePortfolio">Delete Portfolio</a>
           </li>
           <li>
@@ -458,6 +476,28 @@ elsif ($action eq "list")
     <a class="close-reveal-modal">&#215;</a>
   </div>
 
+  <!-- Transfer Money -->
+  <div id="transferMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Transfer Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="transferMoney">
+          <input type="hidden" name="run" value="1">
+          From
+          <input type="text" name="nameMinus">
+          To
+          <input type="text" name="namePlus">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Transfer" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
 HTML
 
   my ($str,$error) = getPortfolios($user,"table");
@@ -511,6 +551,45 @@ HTML
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Sub Routines
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+#
+# Transfer money from one portfolio to another
+#
+
+sub transferMoney
+{
+  my ($nameMinus, $namePlus, $user, $cash) = @_;
+
+  # Make sure cash is a number
+  if (!looks_like_number($cash))
+  {
+    return "Please enter a pure numeric value for \"Amount\"";
+  }
+
+  # Make sure that both portfolio names are valid
+  my @col;
+  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_portfolio where email=? and name in (?,?)","COL",$user,$nameMinus,$namePlus);};
+  if($@ or $col[0]<2)
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+
+  # Deduct money from one portfolio (will return with error if insufficient funds)
+  eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$nameMinus,$user);};
+  if($@)
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+
+  # Add money to the other portfolio
+  eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash + ? where name=? and email=?",undef,$cash,$namePlus,$user);};
+  if($@)
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+
+  return; 
+}
 
 #
 # Delete a portfolio for a user
