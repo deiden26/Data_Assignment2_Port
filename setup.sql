@@ -1,5 +1,9 @@
-create table port_user (email varchar(35) primary key, password varchar(35) not null);
+create table port_users (email varchar(35) primary key, password varchar(35) not null);
 
 create table port_portfolio (name varchar(35) not null, email varchar(35) not null references port_users(email), cash number not null, check (cash>=0));
 
-alter table port_portfolio add constraint pk_port_portfolio PRIMARY KEY(name, email);
+alter table port_portfolio add constraint pk_port_portfolio primary key (name, email);
+
+create table port_stocksDaily as select * from cs339.StocksDaily;
+
+alter table port_stocksDaily add constraint pk_port_stocksDaily primary key (symbol, timestamp);
