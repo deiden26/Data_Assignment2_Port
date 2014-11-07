@@ -16,10 +16,10 @@ create table port_stocksDaily as select * from cs339.StocksDaily;
 alter table port_stocksDaily add constraint pk_port_stocksDaily primary key (symbol, timestamp);
 
 create table port_stocksUser (
-	symbol varchar(16) not null,
+	symbol varchar(16) not null references port_stocksDaily(symbol),
 	amount number not null,
 	name varchar(35) not null,
-	email varchar(35) not null
+	email varchar(35) not null references port_users(email)
 );
 
 alter table port_stocksUser add constraint pk_port_stocksUser primary key (symbol, name, email);

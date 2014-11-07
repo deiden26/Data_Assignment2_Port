@@ -753,27 +753,77 @@ sub addPortfolio
 sub getPortfolioList
 {
   my ($user, $format) = @_;
-  my @rows;
+  my @portfolioRows;
+
+  # Get name and cash value of each portfolio
   eval
   {
-    @rows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+    @portfolioRows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
   };
   if ($@)
   { 
     return (undef,$@);
-  } 
-  else
+  }
+
+  # Get stock value and total value of each portfolio
+
+  my $portfolioName;
+  my $portfolioCash;
+  my @stockRows;
+  my $stockSymbol;
+  my $stockAmount;
+  my @stockPrice;
+  my $portfolioStockValue;
+
+  # For each portfolio...
+  foreach(@portfolioRows)
   {
-    if ($format eq "table")
-    { 
-      return (MakeTable("Portfolios", "2DClickable",
-        ["Name", "Cash Value"],
-        @rows),$@);
-    }
-    else 
+    # Initialize the stock value to 0 and get the portfolio name and cash value
+    $portfolioStockValue = 0;
+    $portfolioName = $_->[0];
+    $portfolioCash = $_->[1];
+    # Get the list of stocks for the portfolio
+    eval
     {
-      return (MakeRaw("individual_data","2D",@rows),$@);
+      @stockRows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where name = ? and email = ?", undef, $portfolioName, $user);
+    };
+    if ($@)
+    { 
+      return (undef,$@);
     }
+    # For each stock in the portfolio's list of stocks
+    foreach(@stockRows)
+    {
+      # Get the stock's symbol and how much is in the portfolio
+      $stockSymbol = $_->[0];
+      $stockAmount = $_->[1];
+      # Get the most recent price of the stock
+      eval
+      {
+        @stockPrice = ExecSQL($dbuser, $dbpasswd, "select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2", "COL",$stockSymbol, $stockSymbol);
+      };
+      if ($@)
+      { 
+        return (undef,$@);
+      }
+      # Add to the running total of the portfolio's stock value
+      $portfolioStockValue += $stockPrice[0]*$stockAmount;
+    }
+    # Add the stock value and the total value to the portfolio's "row"
+    push(@$_, $portfolioStockValue);
+    push(@$_, $portfolioStockValue+$portfolioCash);
+  }
+
+  # Create a table of the portfolio's name, cash value, stock value, and total value
+  if ($format eq "table")
+  { 
+    return (MakeTable("Portfolios", "2DClickable",
+      ["Name", "Cash Value","Stock Value","Total Value"],
+      @portfolioRows),$@);
+  }
+  else 
+  {
+    return (MakeRaw("individual_data","2D",@portfolioRows),$@);
   }
 }
 
