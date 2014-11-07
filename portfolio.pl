@@ -500,7 +500,7 @@ elsif ($action eq "list")
 
 HTML
 
-  my ($str,$error) = getPortfolio($user,"table");
+  my ($str,$error) = getPortfolioList($user,"table");
   if(!$error)
   {
     print << "HTML";
@@ -582,11 +582,11 @@ elsif ($action eq "portfolio")
       <br>
   </div>
 
- 
+ <!-- Modals will go here -->
 
 HTML
 
-  my ($str,$error) = getPortfolio($user,"table");
+  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   if(!$error)
   {
     print << "HTML";
@@ -605,13 +605,12 @@ HTML
         </dl>
         <div class="tabs-content">
           <div class="content active" id="stocksPanel">
-            <p>This is the first panel of the basic tab example. This is the first panel of the basic tab example.</p>
+            $strStock
           </div>
           <div class="content" id="covariancePanel">
-            <p>This is the second panel of the basic tab example. This is the second panel of the basic tab example.</p>
+            $strCov
           </div>
         </div>
-        $str
       </div>
     </div>
 
@@ -781,7 +780,31 @@ sub getPortfolioList
 # 
 sub getPortfolio
 {
-
+  my ($user, $portName, $format) = @_;
+  my @rows;
+  eval
+  {
+    @rows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+  };
+  if ($@)
+  { 
+    return (undef,$@);
+  } 
+  else
+  {
+    if ($format eq "table")
+    { 
+      return (MakeTable("Portfolios", "2D",
+      ["Name", "Cash Value"],
+      @rows), MakeTable("Portfolios", "2D",
+      ["Name", "Cash Value"],
+      @rows), $@);
+    }
+    else 
+    {
+      return (MakeRaw("individual_data","2D",@rows),$@);
+    }
+  }
 }
 
 #
