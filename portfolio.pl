@@ -89,6 +89,7 @@ my $outputcookiecontent = undef;
 my $deletecookie=0;
 my $user = undef;
 my $portName = undef;
+my $stockName = undef;
 my $password = undef;
 
 #
@@ -511,6 +512,7 @@ HTML
     <div class="row">
       <div class="large-12 column">
         <h2>Your Portfolios</h2>
+        <div class='pageType' style="display:none;">PortfolioList</div>
         $str
       </div>
     </div>
@@ -596,7 +598,8 @@ HTML
     <br>
     <div class="row">
       <div class="large-12 column">
-        <h2>Portfolio $portName</h2>
+        <h2 class="pageTitle" name="portfolio">Portfolio $portName</h2>
+        <div class="pageType" style="display:none">Portfolio</div>
         <p>Cash value: </p>
         <p>Stock value: </p>
         <p>Total value: </p>
@@ -610,6 +613,96 @@ HTML
           </div>
           <div class="content" id="covariancePanel">
             $strCov
+          </div>
+        </div>
+      </div>
+    </div>
+
+HTML
+  }
+  else
+  {
+    print << "HTML";
+
+    <!-- Error message -->
+    <div>
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+    </div>
+
+HTML
+}
+}
+elsif ($action eq "stock")
+{
+  $portName = param("portName");
+  $stockName = param("stockName");
+  print << "HTML";
+
+  <!-- Menu bar -->
+  <div class="fixed top-bar-bottom-border">
+    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
+      <ul class="title-area">
+        <li class="name">
+          <h1 class="nav-title">
+            <a href="#" class="nav-title">Gobias</a>
+        </li>
+        <li class="toggle-topbar menu-icon">
+          <a href="#"><span></span></a>
+        </li>
+      </ul>
+      <section class="top-bar-section">
+        <ul class="right">
+          <li>
+            <a href="#" data-reveal-id="addStockData">Add Stock Data</a>
+          </li>
+          <li>
+            <a href="portfolio.pl?act=logout">Logout</a>
+          </li>
+        </ul>
+      </section>
+    </nav>
+  </div>
+
+  <!-- Error Message -->
+  <div style="display:$showError;">
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+  </div>
+
+ <!-- Modals will go here -->
+
+HTML
+  
+  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  if(!$error)
+  {
+    print << "HTML";
+    <!-- Portfolios table -->
+    <br>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>$stockName</h2>
+        <div class="pageType" style="display:none">Stock</div>
+        <p>Price: </p>
+        <p>Variation: </p>
+        <p>Beta: </p>
+        <dl class="tabs" data-tab>
+          <dd class="active"><a href="#historyPanel">History</a></dd>
+          <dd><a href="#predictionPanel">Prediction</a></dd>
+          <dd><a href="#autoTradePanel">Auto-Trade</a></dd>
+        </dl>
+        <div class="tabs-content">
+          <div class="content active" id="historyPanel">
+            $strStock
+          </div>
+          <div class="content" id="predictionPanel">
+            $strCov
+          </div>
+          <div class="content" id="autoTradePanel">
+            $strStock
           </div>
         </div>
       </div>
@@ -850,7 +943,7 @@ sub getPortfolio
     # Now need the close price of each stock
     if ($format eq "table")
     { 
-      return (MakeTable("StockPortfolio", "2D",
+      return (MakeTable("StockPortfolio", "2DClickable",
         ["Symbol", "Amount"],
       @rows), MakeTable("Covariance", "2D",
         ["Name", "Cash Value"],
