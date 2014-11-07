@@ -527,6 +527,7 @@ HTML
       <br>
     </div>
 
+
 HTML
   }
 }
@@ -642,6 +643,7 @@ print << 'HTML';
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
   <script>$(document).foundation();</script>
+  <script src="portfolio.js"></script>
 </body>
 </html>
 
@@ -764,9 +766,9 @@ sub getPortfolioList
   {
     if ($format eq "table")
     { 
-      return (MakeTable("Portfolios", "2D",
-      ["Name", "Cash Value"],
-      @rows),$@);
+      return (MakeTable("Portfolios", "2DClickable",
+        ["Name", "Cash Value"],
+        @rows),$@);
     }
     else 
     {
@@ -867,7 +869,11 @@ sub MakeTable {
   if ((defined $headerlistref) || ($#list>=0)) {
     # if there is, begin a table
     #
-    $out="<table id=\"$id\" border>";
+    if ($type ne "2DClickable") {
+      $out="<table id=\"$id\" border>";
+    } else {
+      $out="<table id=\"id\" class=\"clickable-row\" border>";
+    }
     #
     # if there is a header list, then output it in bold
     #
@@ -888,10 +894,12 @@ sub MakeTable {
       # ditto for a single column
       #
       $out.=join("",map {defined($_) ? "<tr><td>$_</td></tr>" : "<tr><td>(null)</td></tr>"} @list);
-    } else { 
+    } elsif ($type eq "2D") { 
       #
       # For a 2D table, it's a bit more complicated...
       #
+      $out.= join("",map {"<tr>$_</tr>"} (map {join("",map {defined($_) ? "<td>$_</td>" : "<td>(null)</td>"} @{$_})} @list));
+    } else {
       $out.= join("",map {"<tr>$_</tr>"} (map {join("",map {defined($_) ? "<td>$_</td>" : "<td>(null)</td>"} @{$_})} @list));
     }
     $out.="</table>";
