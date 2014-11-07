@@ -500,7 +500,7 @@ elsif ($action eq "list")
 
 HTML
 
-  my ($str,$error) = getPortfolios($user,"table");
+  my ($str,$error) = getPortfolioList($user,"table");
   if(!$error)
   {
     print << "HTML";
@@ -527,8 +527,109 @@ HTML
       <br>
     </div>
 
+
 HTML
   }
+}
+
+#
+# PORTFOLIO
+# The information in a user's individual portfolio
+# 
+
+elsif ($action eq "portfolio")
+{
+  my $portName = param("portName");
+  print << "HTML";
+
+  <!-- Menu bar -->
+  <div class="fixed top-bar-bottom-border">
+    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
+      <ul class="title-area">
+        <li class="name">
+          <h1 class="nav-title">
+            <a href="#" class="nav-title">Gobias</a>
+        </li>
+        <li class="toggle-topbar menu-icon">
+          <a href="#"><span></span></a>
+        </li>
+      </ul>
+      <section class="top-bar-section">
+        <ul class="right">
+          <li>
+            <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
+          </li>
+          <li>
+            <a href="#" data-reveal-id="depositStock">Deposit</a>
+          </li>
+          <li>
+            <a href="#" data-reveal-id="sellStock">Sell</a>
+          </li>
+          <li>
+            <a href="#" data-reveal-id="buyStock">Buy</a>
+          </li>
+          <li>
+            <a href="portfolio.pl?act=logout">Logout</a>
+          </li>
+        </ul>
+      </section>
+    </nav>
+  </div>
+
+  <!-- Error Message -->
+  <div style="display:$showError;">
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+  </div>
+
+ <!-- Modals will go here -->
+
+HTML
+
+  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  if(!$error)
+  {
+    print << "HTML";
+
+    <!-- Portfolios table -->
+    <br>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Portfolio $portName</h2>
+        <p>Cash value: </p>
+        <p>Stock value: </p>
+        <p>Total value: </p>
+        <dl class="tabs" data-tab>
+          <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
+          <dd><a href="#covariancePanel">Covariance</a></dd>
+        </dl>
+        <div class="tabs-content">
+          <div class="content active" id="stocksPanel">
+            $strStock
+          </div>
+          <div class="content" id="covariancePanel">
+            $strCov
+          </div>
+        </div>
+      </div>
+    </div>
+
+HTML
+  }
+  else
+  {
+    print << "HTML";
+
+    <!-- Error message -->
+    <div>
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+    </div>
+
+HTML
+}
 }
 
 else
@@ -542,6 +643,7 @@ print << 'HTML';
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
   <script>$(document).foundation();</script>
+  <script src="portfolio.js"></script>
 </body>
 </html>
 
@@ -648,7 +750,7 @@ sub addPortfolio
 # Retrieve portfolio list for the list page
 #
 
-sub getPortfolios
+sub getPortfolioList
 {
   my ($user, $format) = @_;
   my @rows;
@@ -664,9 +766,41 @@ sub getPortfolios
   {
     if ($format eq "table")
     { 
+      return (MakeTable("Portfolios", "2DClickable",
+        ["Name", "Cash Value"],
+        @rows),$@);
+    }
+    else 
+    {
+      return (MakeRaw("individual_data","2D",@rows),$@);
+    }
+  }
+}
+
+#
+# Retrieve info for single portfolio
+# 
+sub getPortfolio
+{
+  my ($user, $portName, $format) = @_;
+  my @rows;
+  eval
+  {
+    @rows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+  };
+  if ($@)
+  { 
+    return (undef,$@);
+  } 
+  else
+  {
+    if ($format eq "table")
+    { 
       return (MakeTable("Portfolios", "2D",
       ["Name", "Cash Value"],
-      @rows),$@);
+      @rows), MakeTable("Portfolios", "2D",
+      ["Name", "Cash Value"],
+      @rows), $@);
     }
     else 
     {
@@ -735,7 +869,11 @@ sub MakeTable {
   if ((defined $headerlistref) || ($#list>=0)) {
     # if there is, begin a table
     #
-    $out="<table id=\"$id\" border>";
+    if ($type ne "2DClickable") {
+      $out="<table id=\"$id\" border>";
+    } else {
+      $out="<table id=\"id\" class=\"clickable-row\" border>";
+    }
     #
     # if there is a header list, then output it in bold
     #
@@ -756,10 +894,12 @@ sub MakeTable {
       # ditto for a single column
       #
       $out.=join("",map {defined($_) ? "<tr><td>$_</td></tr>" : "<tr><td>(null)</td></tr>"} @list);
-    } else { 
+    } elsif ($type eq "2D") { 
       #
       # For a 2D table, it's a bit more complicated...
       #
+      $out.= join("",map {"<tr>$_</tr>"} (map {join("",map {defined($_) ? "<td>$_</td>" : "<td>(null)</td>"} @{$_})} @list));
+    } else {
       $out.= join("",map {"<tr>$_</tr>"} (map {join("",map {defined($_) ? "<td>$_</td>" : "<td>(null)</td>"} @{$_})} @list));
     }
     $out.="</table>";

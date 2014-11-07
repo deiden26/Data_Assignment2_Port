@@ -4,3 +4,8 @@
 	 width: 100%;
 	 text-align: center;
 }
+
+table.clickable-row tr:not(:first-child):hover
+{
+	cursor:pointer;
+}
