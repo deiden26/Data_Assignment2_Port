@@ -88,6 +88,7 @@ my @outputcookies;
 my $outputcookiecontent = undef;
 my $deletecookie=0;
 my $user = undef;
+my $portName = undef;
 my $password = undef;
 
 #
@@ -539,7 +540,7 @@ HTML
 
 elsif ($action eq "portfolio")
 {
-  my $portName = param("portName");
+  $portName = param("portName");
   print << "HTML";
 
   <!-- Menu bar -->
@@ -586,12 +587,11 @@ elsif ($action eq "portfolio")
  <!-- Modals will go here -->
 
 HTML
-
+  
   my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   if(!$error)
   {
     print << "HTML";
-
     <!-- Portfolios table -->
     <br>
     <div class="row">
@@ -784,23 +784,27 @@ sub getPortfolio
 {
   my ($user, $portName, $format) = @_;
   my @rows;
+  my @covRows;
   eval
   {
-    @rows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+    @rows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where email = ? and name = ?", undef, $user, $portName);
+    @covRows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
   };
   if ($@)
   { 
-    return (undef,$@);
-  } 
+    return (undef, undef, $@);
+  }
+ 
   else
   {
+    # Now need the close price of each stock
     if ($format eq "table")
     { 
-      return (MakeTable("Portfolios", "2D",
-      ["Name", "Cash Value"],
-      @rows), MakeTable("Portfolios", "2D",
-      ["Name", "Cash Value"],
-      @rows), $@);
+      return (MakeTable("StockPortfolio", "2D",
+        ["Symbol", "Amount"],
+      @rows), MakeTable("Covariance", "2D",
+        ["Name", "Cash Value"],
+      @covRows), $@);
     }
     else 
     {
