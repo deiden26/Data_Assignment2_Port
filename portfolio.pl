@@ -346,24 +346,26 @@ if ($action eq "login")
   if (!$run)
   { 
     $menuOptions = '';
-    $pageContent = '<br>
-      <div class="row">
-        <h2>Welcome to Gobias Portfolio Manager</h2>
-        <div class="large-12 column">
-          <form action="portfolio.pl" method="get">
-            <input type="hidden" name="act" value="login">
-            <input type="hidden" name="run" value="1">
-            Email
-            <input type="text" name="user">
-            <br>
-            Password
-            <input type="password" name="password" class="error">
-            <br><br>
-            <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
-            <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
-          <form>
-        </div>
-      </div>';
+    $pageContent = << "HTML";
+    <br>
+    <div class="row">
+      <h2>Welcome to Gobias Portfolio Manager</h2>
+      <div class="large-12 column">
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="login">
+          <input type="hidden" name="run" value="1">
+          Email
+          <input type="text" name="user">
+          <br>
+          Password
+          <input type="password" name="password" class="error">
+          <br><br>
+          <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
+          <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
+        <form>
+      </div>
+    </div>
+HTML
   }
 }
 
@@ -376,38 +378,51 @@ if ($action eq "login")
 #
 elsif ($action eq "list")
 { 
-  $menuOptions = '<li>
-            <a href="#" data-reveal-id="transferMoney">Transfer Money</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="deletePortfolio">Delete Portfolio</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="addPortfolio">Create Portfolio</a>
-          </li>
-          <li>
-            <a href="portfolio.pl?act=logout">Logout</a>
-          </li>';
+  $menuOptions = << "HTML";
+
+  <li>
+    <a href="#" data-reveal-id="transferMoney">Transfer Money</a>
+  </li>
+  <li>
+    <a href="#" data-reveal-id="deletePortfolio">Delete Portfolio</a>
+  </li>
+  <li>
+    <a href="#" data-reveal-id="addPortfolio">Create Portfolio</a>
+  </li>
+  <li>
+    <a href="portfolio.pl?act=logout">Logout</a>
+  </li>
+
+HTML
 
   my ($str,$error) = getPortfolioList($user,"table");
   if(!$error)
   {
-    $pageContent = '<br><div class="row">
+    $pageContent = << "HTML";
+
+    <br>
+    <div class="row">
       <div class="large-12 column">
         <h2>Your Portfolios</h2>
         <div class="pageType" style="display:none;">PortfolioList</div>'
-        . $str .
-      '</div>
-    </div>';
+        $str
+      </div>
+    </div>
+
+HTML
   }
   else
   {
     # Error message
-    $pageContent = '<div>
+    $pageContent = << "HTML";
+
+    <div>
         <br>
         <small class="error error-bar">$formError</small>
         <br>
-      </div>'; 
+    </div>
+
+HTML
   }
 }
 
@@ -420,76 +435,93 @@ elsif ($action eq "portfolio")
 {
   $portName = param("portName");
 
-  $menuOptions = '<li>
-            <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="depositStock">Deposit</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="sellStock">Sell</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="buyStock">Buy</a>
-          </li>
-          <li>
-            <a href="portfolio.pl?act=logout">Logout</a>
-          </li>';
+  $menuOptions = << "HTML";
+
+   <li>
+      <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
+    </li>
+    <li>
+      <a href="#" data-reveal-id="depositStock">Deposit</a>
+    </li>
+    <li>
+      <a href="#" data-reveal-id="sellStock">Sell</a>
+    </li>
+    <li>
+      <a href="#" data-reveal-id="buyStock">Buy</a>
+    </li>
+    <li>
+      <a href="portfolio.pl?act=logout">Logout</a>
+    </li>
+
+HTML
   
   my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   if(!$error)
   {
-    $pageContent = '<br>
-      <div class="row">
-        <div class="large-12 column">
-          <h2 class="pageTitle" name="portfolio">Portfolio ' . $portName . '</h2>
-          <div class="pageType" style="display:none">Portfolio</div>
-          <p>Cash value: </p>
-          <p>Stock value: </p>
-          <p>Total value: </p>
-          <dl class="tabs" data-tab>
-            <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
-            <dd><a href="#covariancePanel">Covariance</a></dd>
-          </dl>
-          <div class="tabs-content">
-            <div class="content active" id="stocksPanel">'
-              . $strStock .
-            '</div>
-            <div class="content" id="covariancePanel">'
-              . $strCov .
-            '</div>
+    $pageContent = << "HTML";
+
+    <br>
+    <div class="row">
+      <div class="large-12 column">
+        <h2 class="pageTitle" name="portfolio">Portfolio $portName</h2>
+        <div class="pageType" style="display:none">Portfolio</div>
+        <p>Cash value: </p>
+        <p>Stock value: </p>
+        <p>Total value: </p>
+        <dl class="tabs" data-tab>
+          <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
+          <dd><a href="#covariancePanel">Covariance</a></dd>
+        </dl>
+        <div class="tabs-content">
+          <div class="content active" id="stocksPanel">
+            $strStock
+          </div>
+          <div class="content" id="covariancePanel">
+            $strCov
           </div>
         </div>
-      </div>';
+      </div>
+    </div>
+
+HTML
   }
   else
   {
-    $pageContent = '<div>
+    $pageContent = << "HTML";
+
+    <div>
         <br>
         <small class="error error-bar">$formError</small>
         <br>
-      </div>';
+    </div>
+
+HTML
   }
 }
 elsif ($action eq "stock")
 {
   $stockName = param("stockName");
 
-  $menuOptions = '<li>
-        <a href="#" data-reveal-id="addStockData">Add Stock Data</a>
-      </li>
-      <li>
-        <a href="portfolio.pl?act=logout">Logout</a>
-      </li>';
+  $menuOptions = << "HTML";
 
+    <li>
+      <a href="#" data-reveal-id="addStockData">Add Stock Data</a>
+    </li>
+    <li>
+      <a href="portfolio.pl?act=logout">Logout</a>
+    </li>
+
+HTML
   
   my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   if(!$error)
   {
-    $pageContent = '<br>
+    $pageContent = << "HTML";
+
+      <br>
       <div class="row">
         <div class="large-12 column">
-          <h2>' . $stockName . '</h2>
+          <h2>$stockName </h2>
           <div class="pageType" style="display:none">Stock</div>
           <p>Price: </p>
           <p>Variation: </p>
@@ -500,26 +532,32 @@ elsif ($action eq "stock")
             <dd><a href="#autoTradePanel">Auto-Trade</a></dd>
           </dl>
           <div class="tabs-content">
-            <div class="content active" id="historyPanel">'
-              . $strStock .
-            '</div>
-            <div class="content" id="predictionPanel">'
-              . $strCov .
-            '</div>
-            <div class="content" id="autoTradePanel">'
-              . $strStock .
-            '</div>
+            <div class="content active" id="historyPanel">
+              $strStock
+            </div>
+            <div class="content" id="predictionPanel">
+              $strCov
+            </div>
+            <div class="content" id="autoTradePanel">
+              $strStock
+            </div>
           </div>
         </div>
-      </div>';
+      </div>
+
+HTML
   }
   else
   {
-    $pageContent = '<div>
-        <br>
-        <small class="error error-bar">$formError</small>
-        <br>
-      </div>';
+    $pageContent = << "HTML"
+
+    <div>
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+    </div>
+
+HTML
   }
 }
 
