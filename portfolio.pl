@@ -88,7 +88,11 @@ my @outputcookies;
 my $outputcookiecontent = undef;
 my $deletecookie=0;
 my $user = undef;
+my $portName = undef;
+my $stockName = undef;
 my $password = undef;
+my $menuOptions = undef;
+my $pageContent = undef;
 
 #
 # Used for displaying form completion errors
@@ -280,6 +284,22 @@ if ($action eq "transferMoney")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# addStockData logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "addStockData")
+{
+  $formError = addStockData(param('stockOpen'), param('stockHigh'),
+      param('stockClose'), param('stockClose'), param('month'),
+      param('day'), param('year'));
+  if (defined $formError) {
+    $showError = 'inline';
+  }
+  $action = 'stock';
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -341,28 +361,8 @@ if ($action eq "login")
 { 
   if (!$run)
   { 
-    print << "HTML";
-
-    <!-- Menu bar -->
-    <div class="fixed top-bar-bottom-border">
-      <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
-        <ul class="title-area">
-          <li class="name">
-            <h1 class="nav-title">
-              <a href="#" class="nav-title">Gobias</a>
-          </li>
-        </ul>
-      </nav>
-    </div>
-
-    <!-- Error Message -->
-    <div style="display:$showError;">
-      <br>
-      <small class="error error-bar">$formError</small>
-      <br>
-    </div>
-
-    <!-- Login Form -->
+    $menuOptions = '';
+    $pageContent = << "HTML";
     <br>
     <div class="row">
       <h2>Welcome to Gobias Portfolio Manager</h2>
@@ -381,7 +381,6 @@ if ($action eq "login")
         <form>
       </div>
     </div>
-
 HTML
   }
 }
@@ -395,6 +394,203 @@ HTML
 #
 elsif ($action eq "list")
 { 
+  $menuOptions = << "HTML";
+
+  <li>
+    <a href="#" data-reveal-id="transferMoney">Transfer Money</a>
+  </li>
+  <li>
+    <a href="#" data-reveal-id="deletePortfolio">Delete Portfolio</a>
+  </li>
+  <li>
+    <a href="#" data-reveal-id="addPortfolio">Create Portfolio</a>
+  </li>
+  <li>
+    <a href="portfolio.pl?act=logout">Logout</a>
+  </li>
+
+HTML
+
+  my ($str,$error) = getPortfolioList($user,"table");
+  if(!$error)
+  {
+    $pageContent = << "HTML";
+
+    <br>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Your Portfolios</h2>
+        <div class="pageType" style="display:none;">PortfolioList</div>'
+        $str
+      </div>
+    </div>
+
+HTML
+  }
+  else
+  {
+    # Error message
+    $pageContent = << "HTML";
+
+    <div>
+        <br>
+        <small class="error error-bar">$formError</small>
+        <br>
+    </div>
+
+HTML
+  }
+}
+
+#
+# PORTFOLIO
+# The information in a user's individual portfolio
+# 
+
+elsif ($action eq "portfolio")
+{
+  $portName = param("portName");
+
+  $menuOptions = << "HTML";
+
+   <li>
+      <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
+    </li>
+    <li>
+      <a href="#" data-reveal-id="depositStock">Deposit</a>
+    </li>
+    <li>
+      <a href="#" data-reveal-id="sellStock">Sell</a>
+    </li>
+    <li>
+      <a href="#" data-reveal-id="buyStock">Buy</a>
+    </li>
+    <li>
+      <a href="portfolio.pl?act=logout">Logout</a>
+    </li>
+
+HTML
+  
+  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  if(!$error)
+  {
+    $pageContent = << "HTML";
+
+    <br>
+    <div class="row">
+      <div class="large-12 column">
+        <h2 class="pageTitle" name="portfolio">Portfolio $portName</h2>
+        <div class="pageType" style="display:none">Portfolio</div>
+        <p>Cash value: </p>
+        <p>Stock value: </p>
+        <p>Total value: </p>
+        <dl class="tabs" data-tab>
+          <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
+          <dd><a href="#covariancePanel">Covariance</a></dd>
+        </dl>
+        <div class="tabs-content">
+          <div class="content active" id="stocksPanel">
+            $strStock
+          </div>
+          <div class="content" id="covariancePanel">
+            $strCov
+          </div>
+        </div>
+      </div>
+    </div>
+
+HTML
+  }
+  else
+  {
+    $pageContent = << "HTML";
+
+    <div>
+        <br>
+        <small class="error error-bar">$formError</small>
+        <br>
+    </div>
+
+HTML
+  }
+}
+elsif ($action eq "stock")
+{
+  $stockName = param("stockName");
+
+  $menuOptions = << "HTML";
+
+    <li>
+      <a href="#" data-reveal-id="addStockData">Add Stock Data</a>
+    </li>
+    <li>
+      <a href="portfolio.pl?act=logout">Logout</a>
+    </li>
+
+HTML
+  
+  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  if(!$error)
+  {
+    $pageContent = << "HTML";
+
+      <br>
+      <div class="row">
+        <div class="large-12 column">
+          <h2>$stockName </h2>
+          <div class="pageType" style="display:none">Stock</div>
+          <p>Price: </p>
+          <p>Variation: </p>
+          <p>Beta: </p>
+          <dl class="tabs" data-tab>
+            <dd class="active"><a href="#historyPanel">History</a></dd>
+            <dd><a href="#predictionPanel">Prediction</a></dd>
+            <dd><a href="#autoTradePanel">Auto-Trade</a></dd>
+          </dl>
+          <div class="tabs-content">
+            <div class="content active" id="historyPanel">
+              $strStock
+            </div>
+            <div class="content" id="predictionPanel">
+              $strCov
+            </div>
+            <div class="content" id="autoTradePanel">
+              $strStock
+            </div>
+          </div>
+        </div>
+      </div>
+
+HTML
+  }
+  else
+  {
+    $pageContent = << "HTML"
+
+    <div>
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+    </div>
+
+HTML
+  }
+}
+
+else
+{
+  print "Error: Invalid action"
+}
+
+#
+# PRINT OUT ALL HTML HERE
+#
+
+my $dateNums = '';
+
+for(my $i=1; $i<=31; $i++) {
+  $dateNums = $dateNums . '<option value="' . $i . '">' . $i . '</option>';
+}
 
   print << "HTML";
 
@@ -412,18 +608,7 @@ elsif ($action eq "list")
       </ul>
       <section class="top-bar-section">
         <ul class="right">
-          <li>
-            <a href="#" data-reveal-id="transferMoney">Transfer Money</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="deletePortfolio">Delete Portfolio</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="addPortfolio">Create Portfolio</a>
-          </li>
-          <li>
-            <a href="portfolio.pl?act=logout">Logout</a>
-          </li>
+          $menuOptions
         </ul>
       </section>
     </nav>
@@ -435,6 +620,8 @@ elsif ($action eq "list")
       <small class="error error-bar">$formError</small>
       <br>
   </div>
+
+  <!-- MODALS GALORE - all modals placed here -->
 
   <!-- Add Portfolio -->
   <div id="addPortfolio" class="reveal-modal" data-reveal>
@@ -498,156 +685,82 @@ elsif ($action eq "list")
     <a class="close-reveal-modal">&#215;</a>
   </div>
 
-HTML
-
-  my ($str,$error) = getPortfolioList($user,"table");
-  if(!$error)
-  {
-    print << "HTML";
-
-    <!-- Portfolios table -->
-    <br>
+  <!-- Add Stock Data -->
+  <div id="addStockData" class="reveal-modal" data-reveal>
     <div class="row">
       <div class="large-12 column">
-        <h2>Your Portfolios</h2>
-        $str
+        <h2>Add new stock data for $stockName</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="addStockData">
+          <input type="hidden" name="run" value="1">
+          Open
+          <input type="text" name="stockOpen">
+          High
+          <input type="text" name="stockHigh">
+          Low
+          <input type="text" name="stockLow">
+          Close
+          <input type="text" name="stockClose">
       </div>
+      <div class="large-4 column">
+        <label>Month
+          <select name="month">
+            <option value='january'>January</option>
+            <option value='february'>February</option>
+            <option value='march'>March</option>
+            <option value='april'>April</option>
+            <option value='may'>May</option>
+            <option value='june'>June</option>
+            <option value='july'>July</option>
+            <option value='august'>August</option>
+            <option value='september'>September</option>
+            <option value='october'>October</option>
+            <option value='november'>November</option>
+            <option value='december'>December</option>
+          </select>
+        </label>
+      </div>
+      <div class="large-2 column">
+        <label>Day
+          <select name="day">
+            $dateNums
+          </select>
+        </label>
+      </div>
+      <div class="large-3 column">
+        <label>Year 
+          <select name="year">
+            <option value='2010'>2010</option>
+            <option value='2011'>2011</option>
+            <option value='2012'>2012</option>
+            <option value='2013'>2013</option>
+            <option value='2014'>2014</option>
+          </select>
+        </label>
+      </div>
+      <div class="large-3 column"></div>
     </div>
-
-HTML
-  }
-  else
-  {
-    print << "HTML";
-
-    <!-- Error message -->
-    <div>
-      <br>
-      <small class="error error-bar">$formError</small>
-      <br>
-    </div>
-
-
-HTML
-  }
-}
-
-#
-# PORTFOLIO
-# The information in a user's individual portfolio
-# 
-
-elsif ($action eq "portfolio")
-{
-  my $portName = param("portName");
-  print << "HTML";
-
-  <!-- Menu bar -->
-  <div class="fixed top-bar-bottom-border">
-    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
-      <ul class="title-area">
-        <li class="name">
-          <h1 class="nav-title">
-            <a href="#" class="nav-title">Gobias</a>
-        </li>
-        <li class="toggle-topbar menu-icon">
-          <a href="#"><span></span></a>
-        </li>
-      </ul>
-      <section class="top-bar-section">
-        <ul class="right">
-          <li>
-            <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="depositStock">Deposit</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="sellStock">Sell</a>
-          </li>
-          <li>
-            <a href="#" data-reveal-id="buyStock">Buy</a>
-          </li>
-          <li>
-            <a href="portfolio.pl?act=logout">Logout</a>
-          </li>
-        </ul>
-      </section>
-    </nav>
+          <br><br>
+          <input type="submit" value="Submit" class="button" style="float:right;">
+        </form>
+    <a class="close-reveal-modal">&#215;</a>
   </div>
 
-  <!-- Error Message -->
-  <div style="display:$showError;">
-      <br>
-      <small class="error error-bar">$formError</small>
-      <br>
-  </div>
 
- <!-- Modals will go here -->
-
-HTML
-
-  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
-  if(!$error)
-  {
-    print << "HTML";
-
-    <!-- Portfolios table -->
-    <br>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Portfolio $portName</h2>
-        <p>Cash value: </p>
-        <p>Stock value: </p>
-        <p>Total value: </p>
-        <dl class="tabs" data-tab>
-          <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
-          <dd><a href="#covariancePanel">Covariance</a></dd>
-        </dl>
-        <div class="tabs-content">
-          <div class="content active" id="stocksPanel">
-            $strStock
-          </div>
-          <div class="content" id="covariancePanel">
-            $strCov
-          </div>
-        </div>
-      </div>
-    </div>
-
-HTML
-  }
-  else
-  {
-    print << "HTML";
-
-    <!-- Error message -->
-    <div>
-      <br>
-      <small class="error error-bar">$formError</small>
-      <br>
-    </div>
-
-HTML
-}
-}
-
-else
-{
-  print "Error: Invalid action"
-}
-
-print << 'HTML';
+  <!-- PAGE CONTENT -->
+  <br>
+  $pageContent
 
   <!-- Javascript needed for foundation -->
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
-  <script>$(document).foundation();</script>
+  <script>\$(document).foundation();</script>
   <script src="portfolio.js"></script>
 </body>
 </html>
 
 HTML
+
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -691,6 +804,16 @@ sub transferMoney
   }
 
   return; 
+}
+
+#
+# Allow user to add stock data on the day of something
+#
+
+sub addStockData
+{
+  my ($open, $high, $low, $close, $month, $day, $year) = @_;
+  return;
 }
 
 #
@@ -834,23 +957,27 @@ sub getPortfolio
 {
   my ($user, $portName, $format) = @_;
   my @rows;
+  my @covRows;
   eval
   {
-    @rows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+    @rows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where email = ? and name = ?", undef, $user, $portName);
+    @covRows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
   };
   if ($@)
   { 
-    return (undef,$@);
-  } 
+    return (undef, undef, $@);
+  }
+ 
   else
   {
+    # Now need the close price of each stock
     if ($format eq "table")
     { 
-      return (MakeTable("Portfolios", "2D",
-      ["Name", "Cash Value"],
-      @rows), MakeTable("Portfolios", "2D",
-      ["Name", "Cash Value"],
-      @rows), $@);
+      return (MakeTable("StockPortfolio", "2DClickable",
+        ["Symbol", "Amount"],
+      @rows), MakeTable("Covariance", "2D",
+        ["Name", "Cash Value"],
+      @covRows), $@);
     }
     else 
     {
