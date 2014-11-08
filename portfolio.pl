@@ -666,7 +666,7 @@ else
   <!-- Javascript needed for foundation -->
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
-  <script>$(document).foundation();</script>
+  <script>\$(document).foundation();</script>
   <script src="portfolio.js"></script>
 </body>
 </html>
