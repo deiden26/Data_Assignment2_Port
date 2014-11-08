@@ -472,7 +472,8 @@ elsif ($action eq "portfolio")
 HTML
   
   my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
-  if(!$error)
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, undef, undef);
+  if(!$error and !$c_error)
   {
     $pageContent = << "HTML";
 
@@ -487,13 +488,17 @@ HTML
         <dl class="tabs" data-tab>
           <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
           <dd><a href="#covariancePanel">Covariance</a></dd>
+          <dd><a href="#corrcoeffPanel">Correlation Coeff</a></dd>
         </dl>
         <div class="tabs-content">
           <div class="content active" id="stocksPanel">
             $strStock
           </div>
           <div class="content" id="covariancePanel">
-            $strCov
+            $covarTable
+          </div>
+          <div class="content" id="corrcoeffPanel">
+            $corrcoeffTable
           </div>
         </div>
       </div>
@@ -503,6 +508,14 @@ HTML
   }
   else
   {
+    if($error)
+    {
+      $formError = $error;
+    }
+    else
+    {
+      $formError = $c_error;
+    }
     $pageContent = << "HTML";
 
     <div>
@@ -766,6 +779,177 @@ HTML
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Sub Routines
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+#
+# Transfer money from one portfolio to another
+#
+
+sub getCovarienceCorrelation
+{
+  my ($user, $portfolioName, $start, $end) = @_;
+  my @symbols;
+
+  eval
+  {
+    @symbols = ExecSQL($dbuser,$dbpasswd, "select symbol from port_stocksUser where email=? and name=?","COL",$user,$portfolioName);
+  };
+  if ($@)
+  {
+    return (undef,undef,$@);
+  }
+
+  # initialize variables
+  my %covar;
+  my %corrcoeff;
+  my ($count, $mean_f1,$std_f1, $mean_f2, $std_f2);
+
+  # For each stock symbol
+  for (my $i=0;$i<=$#symbols;$i++)
+  {
+    # Store the stock symbol in s1
+    my $s1=$symbols[$i];
+    # For each other stock symbol after s1
+    for (my $j=$i; $j<=$#symbols; $j++)
+    {
+      # Store the other stock symbol in s2
+      my $s2=$symbols[$j];
+
+      # Get means and vars for the individual columns that match      
+
+      if (defined $start and defined $end)
+      { # Get for specific time range
+        eval
+        {
+          ($count, $mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?","COL",$s1,$s2,$start,$end);
+        };
+      }
+      else
+      { # Get for all time
+        eval
+        {
+          ($count, $mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=?","COL",$s1,$s2);
+        };
+      }
+      if ($@)
+      {
+        return (undef,undef,$@);
+      }
+
+      #skip this pair if there isn't enough data
+
+      if ($count<30)
+      { # not enough data
+        $covar{$s1}{$s2}='NODAT';
+        $corrcoeff{$s1}{$s2}='NODAT';
+      }
+
+      else
+      { # Get the covariance
+
+      if (defined $start and defined $end)
+      { # Get for specific time range
+        eval
+        {
+          ($covar{$s1}{$s2}) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close -  ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?","COL",$mean_f1,$mean_f2,$s1,$s2,$start,$end)
+        };
+      }
+      else
+      { # Get for all time
+        eval
+        {
+          ($covar{$s1}{$s2}) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=?", "COL",$mean_f1,$mean_f2,$s1,$s2)
+        };
+      }
+      if ($@)
+      {
+        return (undef,undef,$@);
+      }
+
+      #and the correlationcoeff
+
+      $corrcoeff{$s1}{$s2} = $covar{$s1}{$s2}/($std_f1*$std_f2);
+      }
+    }
+  }
+
+  # Create output covar table-html
+
+  # First table row (all stock symbols)
+  my $covarTable = "<table style='width:100%''>\n"."<tr>\n"."<td></td>\n";
+  foreach(@symbols)
+  {
+    $covarTable .= "<th>$_</th>\n";
+  }
+  $covarTable .= "</tr>\n";
+
+  # All other rows
+  for (my $i=0;$i<=$#symbols;$i++)
+  {
+    # Start new table row
+    $covarTable .= "<tr>\n";
+    # First column is always the stock symbol
+    my $s1 = $symbols[$i];
+    $covarTable .= "<th>$s1</th>\n";
+
+    # For all other columns
+    for (my $j=0; $j<=$#symbols;$j++)
+    {
+      # If stock i has already been compared to stock j
+      if ($i>$j)
+      { # Print an empty square
+        $covarTable .= "<td></td>\n";
+      }
+      else
+      { #Print a square filled with the covarience data
+        my $s2=$symbols[$j];
+        my $data = $covar{$s1}{$s2} eq "NODAT" ? "NODAT" : sprintf('%3.2f',$covar{$s1}{$s2});
+        $covarTable .= "<td>$data</td>\n";
+      }
+    }
+    $covarTable .= "</tr>\n";
+  }
+  $covarTable .= "</table>\n";
+
+  # Create output covar table-html
+
+  # First table row (all stock symbols)
+  my $corrcoeffTable = "<table style='width:100%''>\n"."<tr>\n"."<td></td>\n";
+  foreach(@symbols)
+  {
+    $corrcoeffTable .= "<th>$_</th>\n";
+  }
+  $corrcoeffTable .= "</tr>\n";
+
+  # All other rows
+  for (my $i=0;$i<=$#symbols;$i++)
+  {
+    # Start new table row
+    $corrcoeffTable .= "<tr>\n";
+    # First column is always the stock symbol
+    my $s1 = $symbols[$i];
+    $corrcoeffTable .= "<th>$s1</th>\n";
+
+    # For all other columns
+    for (my $j=0; $j<=$#symbols;$j++)
+    {
+      # If stock i has already been compared to stock j
+      if ($i>$j)
+      { # Print an empty square
+        $corrcoeffTable .= "<td></td>\n";
+      }
+      else
+      { #Print a square filled with the covarience data
+        my $s2=$symbols[$j];
+        my $data = $corrcoeff{$s1}{$s2} eq "NODAT" ? "NODAT" : sprintf('%3.2f',$corrcoeff{$s1}{$s2});
+        $corrcoeffTable .= "<td>$data</td>\n";
+      }
+    }
+    $corrcoeffTable .= "</tr>\n";
+  }
+  $corrcoeffTable .= "</table>\n";
+
+  return ($corrcoeffTable, $corrcoeffTable,undef);
+}
 
 #
 # Transfer money from one portfolio to another
