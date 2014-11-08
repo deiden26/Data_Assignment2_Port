@@ -284,6 +284,22 @@ if ($action eq "transferMoney")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# addStockData logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "addStockData")
+{
+  $formError = addStockData(param('stockOpen'), param('stockHigh'),
+      param('stockClose'), param('stockClose'), param('month'),
+      param('day'), param('year'));
+  if (defined $formError) {
+    $showError = 'inline';
+  }
+  $action = 'stock';
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -570,6 +586,12 @@ else
 # PRINT OUT ALL HTML HERE
 #
 
+my $dateNums = '';
+
+for(my $i=1; $i<=31; $i++) {
+  $dateNums = $dateNums . '<option value="' . $i . '">' . $i . '</option>';
+}
+
   print << "HTML";
 
   <!-- Menu bar -->
@@ -598,6 +620,8 @@ else
       <small class="error error-bar">$formError</small>
       <br>
   </div>
+
+  <!-- MODALS GALORE - all modals placed here -->
 
   <!-- Add Portfolio -->
   <div id="addPortfolio" class="reveal-modal" data-reveal>
@@ -660,6 +684,70 @@ else
     </div>
     <a class="close-reveal-modal">&#215;</a>
   </div>
+
+  <!-- Add Stock Data -->
+  <div id="addStockData" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Add new stock data for $stockName</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="addStockData">
+          <input type="hidden" name="run" value="1">
+          Open
+          <input type="text" name="stockOpen">
+          High
+          <input type="text" name="stockHigh">
+          Low
+          <input type="text" name="stockLow">
+          Close
+          <input type="text" name="stockClose">
+      </div>
+      <div class="large-4 column">
+        <label>Month
+          <select name="month">
+            <option value='january'>January</option>
+            <option value='february'>February</option>
+            <option value='march'>March</option>
+            <option value='april'>April</option>
+            <option value='may'>May</option>
+            <option value='june'>June</option>
+            <option value='july'>July</option>
+            <option value='august'>August</option>
+            <option value='september'>September</option>
+            <option value='october'>October</option>
+            <option value='november'>November</option>
+            <option value='december'>December</option>
+          </select>
+        </label>
+      </div>
+      <div class="large-2 column">
+        <label>Day
+          <select name="day">
+            $dateNums
+          </select>
+        </label>
+      </div>
+      <div class="large-3 column">
+        <label>Year 
+          <select name="year">
+            <option value='2010'>2010</option>
+            <option value='2011'>2011</option>
+            <option value='2012'>2012</option>
+            <option value='2013'>2013</option>
+            <option value='2014'>2014</option>
+          </select>
+        </label>
+      </div>
+      <div class="large-3 column"></div>
+    </div>
+          <br><br>
+          <input type="submit" value="Submit" class="button" style="float:right;">
+        </form>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+
+  <!-- PAGE CONTENT -->
   <br>
   $pageContent
 
@@ -672,6 +760,7 @@ else
 </html>
 
 HTML
+
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -715,6 +804,16 @@ sub transferMoney
   }
 
   return; 
+}
+
+#
+# Allow user to add stock data on the day of something
+#
+
+sub addStockData
+{
+  my ($open, $high, $low, $close, $month, $day, $year) = @_;
+  return;
 }
 
 #
