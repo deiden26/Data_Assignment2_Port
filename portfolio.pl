@@ -420,7 +420,7 @@ HTML
     <div class="row">
       <div class="large-12 column">
         <h2>Your Portfolios</h2>
-        <div class="pageType" style="display:none;">PortfolioList</div>'
+        <div class="pageType" style="display:none;">PortfolioList</div>
         $str
       </div>
     </div>
@@ -801,7 +801,11 @@ sub getCovarienceCorrelation
   # initialize variables
   my %covar;
   my %corrcoeff;
-  my ($count, $mean_f1,$std_f1, $mean_f2, $std_f2);
+  my $count;
+  my $mean_f1;
+  my $std_f1;
+  my $mean_f2;
+  my $std_f2;
 
   # For each stock symbol
   for (my $i=0;$i<=$#symbols;$i++)
@@ -820,14 +824,14 @@ sub getCovarienceCorrelation
       { # Get for specific time range
         eval
         {
-          ($count, $mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?","COL",$s1,$s2,$start,$end);
+          ($count, $mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?","ROW",$s1,$s2,$start,$end);
         };
       }
       else
       { # Get for all time
         eval
         {
-          ($count, $mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=?","COL",$s1,$s2);
+          ($count, $mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=?","ROW",$s1,$s2);
         };
       }
       if ($@)
@@ -846,28 +850,28 @@ sub getCovarienceCorrelation
       else
       { # Get the covariance
 
-      if (defined $start and defined $end)
-      { # Get for specific time range
-        eval
+        if (defined $start and defined $end)
+        { # Get for specific time range
+          eval
+          {
+            ($covar{$s1}{$s2}) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close -  ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?","COL",$mean_f1,$mean_f2,$s1,$s2,$start,$end)
+          };
+        }
+        else
+        { # Get for all time
+          eval
+          {
+            ($covar{$s1}{$s2}) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=?", "COL",$mean_f1,$mean_f2,$s1,$s2)
+          };
+        }
+        if ($@)
         {
-          ($covar{$s1}{$s2}) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close -  ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?","COL",$mean_f1,$mean_f2,$s1,$s2,$start,$end)
-        };
-      }
-      else
-      { # Get for all time
-        eval
-        {
-          ($covar{$s1}{$s2}) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=?", "COL",$mean_f1,$mean_f2,$s1,$s2)
-        };
-      }
-      if ($@)
-      {
-        return (undef,undef,$@);
-      }
+          return (undef,undef,$@);
+        }
 
-      #and the correlationcoeff
+        #and the correlationcoeff
 
-      $corrcoeff{$s1}{$s2} = $covar{$s1}{$s2}/($std_f1*$std_f2);
+        $corrcoeff{$s1}{$s2} = $covar{$s1}{$s2}/($std_f1*$std_f2);
       }
     }
   }
@@ -875,7 +879,7 @@ sub getCovarienceCorrelation
   # Create output covar table-html
 
   # First table row (all stock symbols)
-  my $covarTable = "<table style='width:100%''>\n"."<tr>\n"."<td></td>\n";
+  my $covarTable = "<table style='width:100%' border>\n"."<tbody>\n"."<tr>\n"."<td></td>\n";
   foreach(@symbols)
   {
     $covarTable .= "<th>$_</th>\n";
@@ -908,12 +912,12 @@ sub getCovarienceCorrelation
     }
     $covarTable .= "</tr>\n";
   }
-  $covarTable .= "</table>\n";
+  $covarTable .= "</tbody>\n"."</table>\n";
 
   # Create output covar table-html
 
   # First table row (all stock symbols)
-  my $corrcoeffTable = "<table style='width:100%''>\n"."<tr>\n"."<td></td>\n";
+  my $corrcoeffTable = "<table style='width:100%' border>\n"."<tbody>\n"."<tr>\n"."<td></td>\n";
   foreach(@symbols)
   {
     $corrcoeffTable .= "<th>$_</th>\n";
@@ -946,9 +950,9 @@ sub getCovarienceCorrelation
     }
     $corrcoeffTable .= "</tr>\n";
   }
-  $corrcoeffTable .= "</table>\n";
+  $corrcoeffTable .= "</tbody>\n"."</table>\n";
 
-  return ($corrcoeffTable, $corrcoeffTable,undef);
+  return ($covarTable, $corrcoeffTable,undef);
 }
 
 #
@@ -1233,13 +1237,13 @@ sub MakeTable {
     if ($type ne "2DClickable") {
       $out="<table id=\"$id\" border>";
     } else {
-      $out="<table id=\"id\" class=\"clickable-row\" border>";
+      $out="<table id=\"id\" class=\"clickable-row\" style='width:100%' border>";
     }
     #
     # if there is a header list, then output it in bold
     #
     if (defined $headerlistref) { 
-      $out.="<tr>".join("",(map {"<td><b>$_</b></td>"} @{$headerlistref}))."</tr>";
+      $out.="<tr>".join("",(map {"<th>$_</th>"} @{$headerlistref}))."</tr>";
     }
     #
     # If it's a single row, just output it in an obvious way
