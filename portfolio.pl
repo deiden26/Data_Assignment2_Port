@@ -47,6 +47,7 @@ my @sqloutput=();
 # date strings into the unix epoch time (seconds since 1970)
 #
 use Time::ParseDate;
+use Time::Local;
 
 #
 # Tests if a scalar is a number
@@ -93,6 +94,7 @@ my $stockName = undef;
 my $password = undef;
 my $menuOptions = undef;
 my $pageContent = undef;
+my $timestamp = undef;
 
 #
 # Used for displaying form completion errors
@@ -289,14 +291,15 @@ if ($action eq "transferMoney")
 
 if ($action eq "addStockData")
 {
+  $stockName = param('stockName');
   $formError = addStockData(param('stockOpen'), param('stockHigh'),
-      param('stockClose'), param('stockClose'), param('month'),
-      param('day'), param('year'));
+      param('stockLow'), param('stockClose'), param('stockVolume'),
+      param('month'), param('day'), param('year'));
   if (defined $formError) {
     $showError = 'inline';
   }
   $action = 'stock';
-  $run = 0;
+  #$run = 0;
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -529,7 +532,9 @@ HTML
 }
 elsif ($action eq "stock")
 {
-  $stockName = param("stockName");
+  if (defined(param("stockName"))) {
+    $stockName = param("stockName");
+  }
 
   $menuOptions = << "HTML";
 
@@ -550,7 +555,7 @@ HTML
       <br>
       <div class="row">
         <div class="large-12 column">
-          <h2>$stockName </h2>
+          <h2>$stockName</h2>
           <div class="pageType" style="display:none">Stock</div>
           <p>Price: </p>
           <p>Variation: </p>
@@ -705,7 +710,7 @@ for(my $i=1; $i<=31; $i++) {
         <h2>Add new stock data for $stockName</h2>
         <form action="portfolio.pl" method="get">
           <input type="hidden" name="act" value="addStockData">
-          <input type="hidden" name="run" value="1">
+          <input type="hidden" name="stockName" value=$stockName>
           Open
           <input type="text" name="stockOpen">
           High
@@ -714,22 +719,24 @@ for(my $i=1; $i<=31; $i++) {
           <input type="text" name="stockLow">
           Close
           <input type="text" name="stockClose">
+          Volume
+          <input type="text" name="stockVolume">
       </div>
       <div class="large-4 column">
         <label>Month
           <select name="month">
-            <option value='january'>January</option>
-            <option value='february'>February</option>
-            <option value='march'>March</option>
-            <option value='april'>April</option>
-            <option value='may'>May</option>
-            <option value='june'>June</option>
-            <option value='july'>July</option>
-            <option value='august'>August</option>
-            <option value='september'>September</option>
-            <option value='october'>October</option>
-            <option value='november'>November</option>
-            <option value='december'>December</option>
+            <option value='1'>January</option>
+            <option value='2'>February</option>
+            <option value='3'>March</option>
+            <option value='4'>April</option>
+            <option value='5'>May</option>
+            <option value='6'>June</option>
+            <option value='7'>July</option>
+            <option value='8'>August</option>
+            <option value='9'>September</option>
+            <option value='10'>October</option>
+            <option value='11'>November</option>
+            <option value='12'>December</option>
           </select>
         </label>
       </div>
@@ -1000,7 +1007,12 @@ sub transferMoney
 
 sub addStockData
 {
-  my ($open, $high, $low, $close, $month, $day, $year) = @_;
+  my ($open, $high, $low, $close, $volume, $month, $day, $year) = @_;
+  # Timestamp after closing time of stock market
+  $timestamp = timelocal(0, 59, 23, $day, $month-1, $year);
+
+  eval{ExecSQL($dbuser, $dbpasswd, "insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)", undef, $stockName, $timestamp, $open, $high, $low, $close, $volume);};
+
   return;
 }
 
