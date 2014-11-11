@@ -488,9 +488,9 @@ HTML
       <div class="large-12 column">
         <h2 class="pageTitle" name="portfolio">Portfolio $portName</h2>
         <div class="pageType" style="display:none">Portfolio</div>
-        <p>Cash value: $cashVal</p>
-        <p>Stock value: $stockVal</p>
-        <p>Total value: $totalVal</p>
+        <p><b>Cash value:</b> $cashVal</p>
+        <p><b>Stock value:</b> $stockVal</p>
+        <p><b>Total value:</b> $totalVal</p>
         <dl class="tabs" data-tab>
           <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
           <dd><a href="#covariancePanel">Covariance</a></dd>
@@ -1252,6 +1252,7 @@ sub getPortfolio
   # Initialize variables
   my $stockSymbol;
   my $stockAmount;
+  my @coeffVariation;
   my @stockPrice;
   my $portfolioStockValue = 0;
 
@@ -1272,17 +1273,34 @@ sub getPortfolio
     # Add to the running total of the portfolio's stock value
     $portfolioStockValue += $stockPrice[0]*$stockAmount;
     # push the stock's price and value into the stockRow
-    push(@$_, $stockPrice[0]);
-    push(@$_, $stockPrice[0]*$stockAmount);
+    push(@$_, sprintf('%3.2f',$stockPrice[0]));
+    push(@$_, sprintf('%3.2f',$stockPrice[0]*$stockAmount));
+
+    # Get the stock's coefficient of variation
+    eval
+    {
+      @coeffVariation = ExecSQL($dbuser, $dbpasswd, "select stddev(close)/avg(close) from port_stocksDaily where symbol=?","ROW",$stockSymbol);
+    };
+    if ($@)
+    { 
+      return (undef,undef,undef,undef,$@);
+    }
+    # Push the stock's coefficient of variation into the stockRow
+    push(@$_, sprintf('%3.4f',$coeffVariation[0]));
+
   }
 
   # Calculate total portfolio value
-  my $portfolioTotalValue = $portfolioCash + $portfolioStockValue;
+  my $portfolioTotalValue = sprintf('%3.2f',$portfolioCash + $portfolioStockValue);
+
+  # Round off cash value and stock value
+  $portfolioCash = sprintf('%3.2f',$portfolioCash);
+  $portfolioStockValue = sprintf('%3.2f',$portfolioStockValue);
  
   return ($portfolioCash,
     $portfolioStockValue,
     $portfolioTotalValue,
-    MakeTable("StockPortfolio", "2DClickable", ["Symbol", "Quantity", "Price", "Value"],
+    MakeTable("StockPortfolio", "2DClickable", ["Symbol", "Quantity", "Price", "Value", "COV"],
     @stockRows),
     $@);
     
