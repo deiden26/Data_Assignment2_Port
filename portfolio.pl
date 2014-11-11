@@ -1255,6 +1255,11 @@ sub getPortfolio
   my @coeffVariation;
   my @stockPrice;
   my $portfolioStockValue = 0;
+  my ($mean_f1,$std_f1, $mean_f2, $std_f2);
+  my $covar;
+  my $beta;
+  my $count;
+  my $entries;
 
   foreach(@stockRows)
   {
@@ -1288,6 +1293,60 @@ sub getPortfolio
     # Push the stock's coefficient of variation into the stockRow
     push(@$_, sprintf('%3.4f',$coeffVariation[0]));
 
+    # Get the stocks beta
+
+    # Find out if the beta for this stock has a cached value for the stock data currently available
+    eval
+    {
+      ($count) = ExecSQL($dbuser,$dbpasswd,"select count(*) from port_stocksDaily where symbol=?","COL",$stockSymbol);
+      ($entries, $beta) = ExecSQL($dbuser,$dbpasswd,"select entries, beta from port_betaCache where symbol=?","ROW",$stockSymbol);
+    };
+    if ($@)
+    {
+      return (undef,undef,undef,undef,$@);
+    }
+    # If the beta value hasn't been cached since new data was added, calculate it
+    if($count != $entries)
+    {
+      eval
+      {
+        ($mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=?","ROW",$stockSymbol);
+      };
+      if ($@)
+      { 
+        return (undef,undef,undef,undef,$@);
+      }
+      eval
+      {
+        ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
+      };
+      if ($@)
+      { 
+        return (undef,undef,undef,undef,$@);
+      }
+      $beta = $covar/($std_f1*$std_f2);
+
+      # Store the beta value in the cache
+      eval
+      {
+        if (defined $entries)
+        {
+          ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+        }
+        else
+        {
+          ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+        }
+      };
+      if ($@)
+      { 
+        return (undef,undef,undef,undef,$@);
+      }
+    }
+
+    # Push the stock's beta into the stockRow
+    push(@$_, sprintf('%3.4f',$beta));
+
   }
 
   # Calculate total portfolio value
@@ -1300,7 +1359,7 @@ sub getPortfolio
   return ($portfolioCash,
     $portfolioStockValue,
     $portfolioTotalValue,
-    MakeTable("StockPortfolio", "2DClickable", ["Symbol", "Quantity", "Price", "Value", "COV"],
+    MakeTable("StockPortfolio", "2DClickable", ["Symbol", "Quantity", "Price", "Value", "COV", "Beta"],
     @stockRows),
     $@);
     

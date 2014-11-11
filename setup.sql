@@ -27,3 +27,9 @@ alter table port_stocksUser add constraint pk_port_stocksUser primary key (symbo
 create table port_covarCach (stk1 varchar(16) not null, stk2 varchar(16) not null, startDate number, endDate number, value number);
 
 alter table port_covarCach add constraint pk_port_covarCach primary key(stk1, stk2, startDate, endDate);
+
+create table port_betaCach (symbol varchar(16) primary key, beta number not null, entries number not null);
+
+create table port_betaCach (symbol varchar(16) not null, startDate number, endDate number, beta number not null, entries number not null);
+
+alter table port_betaCach add constraint pk_port_betaCach primary key(symbol, startDate, endDate);
