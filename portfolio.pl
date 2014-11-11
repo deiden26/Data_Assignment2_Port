@@ -576,7 +576,8 @@ HTML
   
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my $stockHistory = getStockHistory($user, $stockName);
-  if(1) # if !$error
+  my $predictions = getStockPredictions($user, $stockName);
+  if($stockHistory) # if !$error
   {
     $pageContent = << "HTML";
 
@@ -598,7 +599,7 @@ HTML
               $stockHistory
             </div>
             <div class="content" id="predictionPanel">
-              $stockHistory
+              $predictions
             </div>
             <div class="content" id="autoTradePanel">
               $stockHistory
@@ -1046,6 +1047,7 @@ sub addStockData
   my ($open, $high, $low, $close, $volume, $month, $day, $year) = @_;
   # Timestamp after closing time of stock market
   $timestamp = timelocal(0, 59, 23, $day, $month-1, $year);
+  $volume =~ s/[_,-]//g;  # remove commas from volume
 
   eval{ExecSQL($dbuser, $dbpasswd, "insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)", undef, $stockName, $timestamp, $open, $high, $low, $close, $volume);};
 
@@ -1220,6 +1222,12 @@ sub getPortfolio
       return (MakeRaw("individual_data","2D",@rows),$@);
     }
   }
+}
+
+sub getStockPredictions
+{
+  
+  return;
 }
 
 sub getStockHistory
