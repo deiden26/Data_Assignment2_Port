@@ -477,7 +477,7 @@ elsif ($action eq "portfolio")
 HTML
   
   my $date = strftime "%m/%d/%Y", localtime;
-  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  my ($cashVal, $stockVal, $totalVal, $strStock, $error) = getPortfolio($user, $portName, "table");
   my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, undef, undef);
   if(!$error and !$c_error)
   {
@@ -488,9 +488,9 @@ HTML
       <div class="large-12 column">
         <h2 class="pageTitle" name="portfolio">Portfolio $portName</h2>
         <div class="pageType" style="display:none">Portfolio</div>
-        <p>Cash value: </p>
-        <p>Stock value: </p>
-        <p>Total value: </p>
+        <p>Cash value: $cashVal</p>
+        <p>Stock value: $stockVal</p>
+        <p>Total value: $totalVal</p>
         <dl class="tabs" data-tab>
           <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
           <dd><a href="#covariancePanel">Covariance</a></dd>
@@ -590,7 +590,7 @@ elsif ($action eq "stock")
 
 HTML
   
-  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  my ($cashVal, $stockVal, $totalVal, $strStock, $error) = getPortfolio($user, $portName, "table");
   if(!$error)
   {
     $pageContent = << "HTML";
@@ -613,7 +613,7 @@ HTML
               $strStock
             </div>
             <div class="content" id="predictionPanel">
-              $strCov
+              $strStock
             </div>
             <div class="content" id="autoTradePanel">
               $strStock
@@ -1226,34 +1226,66 @@ sub getPortfolioList
 sub getPortfolio
 {
   my ($user, $portName, $format) = @_;
-  my @rows;
-  my @covRows;
+
+  # Get the cash value of the portfolio
+  my @cash;
   eval
   {
-    @rows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where email = ? and name = ?", undef, $user, $portName);
-    @covRows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+    @cash = ExecSQL($dbuser, $dbpasswd, "select cash from port_portfolio where email = ?", "ROW", $user);
   };
   if ($@)
   { 
-    return (undef, undef, $@);
+    return (undef,undef,undef,undef,$@);
   }
- 
-  else
+  my $portfolioCash = $cash[0];
+
+  my @stockRows;
+  eval
   {
-    # Now need the close price of each stock
-    if ($format eq "table")
-    { 
-      return (MakeTable("StockPortfolio", "2DClickable",
-        ["Symbol", "Amount"],
-      @rows), MakeTable("Covariance", "2D",
-        ["Name", "Cash Value"],
-      @covRows), $@);
-    }
-    else 
-    {
-      return (MakeRaw("individual_data","2D",@rows),$@);
-    }
+    @stockRows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where email = ? and name = ?", undef, $user, $portName);
+  };
+  if ($@)
+  { 
+    return (undef,undef,undef,undef, $@);
   }
+
+  # Initialize variables
+  my $stockSymbol;
+  my $stockAmount;
+  my @stockPrice;
+  my $portfolioStockValue = 0;
+
+  foreach(@stockRows)
+  {
+    # Get the stock's symbol and how much is in the portfolio
+    $stockSymbol = $_->[0];
+    $stockAmount = $_->[1];
+    # Get the most recent price of the stock
+    eval
+    {
+      @stockPrice = ExecSQL($dbuser, $dbpasswd, "select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2", "COL",$stockSymbol, $stockSymbol);
+    };
+    if ($@)
+    { 
+      return (undef,undef,undef,undef,$@);
+    }
+    # Add to the running total of the portfolio's stock value
+    $portfolioStockValue += $stockPrice[0]*$stockAmount;
+    # push the stock's price and value into the stockRow
+    push(@$_, $stockPrice[0]);
+    push(@$_, $stockPrice[0]*$stockAmount);
+  }
+
+  # Calculate total portfolio value
+  my $portfolioTotalValue = $portfolioCash + $portfolioStockValue;
+ 
+  return ($portfolioCash,
+    $portfolioStockValue,
+    $portfolioTotalValue,
+    MakeTable("StockPortfolio", "2DClickable", ["Symbol", "Quantity", "Price", "Value"],
+    @stockRows),
+    $@);
+    
 }
 
 #

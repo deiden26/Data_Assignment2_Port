@@ -37,6 +37,7 @@ $(document).ready(function() {
       });
        return false;
    });
+   //Change data in corrcoeffTable based on input date range
    $('#corrcoeffTimeForm').submit( function (event) {
       event.preventDefault();
       var startDate = Date.parse($('#corrcoeffTimeForm #startDate').val())/1000;
