@@ -48,6 +48,7 @@ my @sqloutput=();
 #
 use Time::ParseDate;
 use Time::Local;
+use POSIX qw(strftime);
 
 #
 # Tests if a scalar is a number
@@ -494,7 +495,8 @@ elsif ($action eq "portfolio")
 
 HTML
   
-  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  my $date = strftime "%m/%d/%Y", localtime;
+  my ($cashVal, $stockVal, $totalVal, $strStock, $error) = getPortfolio($user, $portName, "table");
   my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, undef, undef);
   if(!$error and !$c_error)
   {
@@ -505,9 +507,9 @@ HTML
       <div class="large-12 column">
         <h2 class="pageTitle" name="portfolio">Portfolio $portName</h2>
         <div class="pageType" style="display:none">Portfolio</div>
-        <p>Cash value: </p>
-        <p>Stock value: </p>
-        <p>Total value: </p>
+        <p><b>Cash value:</b> $cashVal</p>
+        <p><b>Stock value:</b> $stockVal</p>
+        <p><b>Total value:</b> $totalVal</p>
         <dl class="tabs" data-tab>
           <dd class="active"><a href="#stocksPanel">Stocks</a></dd>
           <dd><a href="#covariancePanel">Covariance</a></dd>
@@ -519,16 +521,49 @@ HTML
           </div>
           <div class="content" id="covariancePanel">
             <form id="covarTimeForm">
-              <div class="column">
-                <input class="datePicker" type="text" value="">
-                <input class="datePicker" type="text" value="">
-                <input type="submit" class="button" value="Submit">
+              <div class="row">
+                <div class="large-6 column">
+                  <label>Start
+                    <input class="datePicker" id="startDate" type="text" value="01/01/1925"></input>
+                  </label>
+                </div>
+                <div class="large-6 column">
+                  <label>End
+                    <input class="datePicker" id="endDate" type="text" value="$date"></input>
+                  </label>
+                </div>
+                <div class="large-12 column">
+                  <input type="hidden" id="portName" value="$portName">
+                  <input type="submit" class="button" value="Submit" style="float:right;"></input>
+                </div>
               </div>
             </form>
-            $covarTable
+            <div id="covarTable">
+              $covarTable
+            </div>
           </div>
           <div class="content" id="corrcoeffPanel">
-            $corrcoeffTable
+            <form id="corrcoeffTimeForm">
+              <div class="row">
+                <div class="large-6 column">
+                  <label>Start
+                    <input class="datePicker" id="startDate" type="text" value="01/01/1925"></input>
+                  </label>
+                </div>
+                <div class="large-6 column">
+                  <label>End
+                    <input class="datePicker" id="endDate" type="text" value="$date"></input>
+                  </label>
+                </div>
+                <div class="large-12 column">
+                  <input type="hidden" id="portName" value="$portName">
+                  <input type="submit" class="button" value="Submit" style="float:right;"></input>
+                </div>
+              </div>
+            </form>
+            <div id="corrcoeffTable">
+              $corrcoeffTable
+            </div>
           </div>
         </div>
       </div>
@@ -624,6 +659,32 @@ HTML
 
 HTML
   }
+}
+
+# Just get the table of covariences for a given time frame (only used for javascript request)
+elsif ($action eq "covar")
+{
+  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
+  $pageContent = << "HTML"
+    <div id="covarTable">
+      $covarTable
+    </div>
+
+HTML
+}
+
+# Just get the table of correlation coefficients for a given time frame (only used for javascript request)
+elsif ($action eq "corrcoeff")
+{
+  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
+  $pageContent = << "HTML"
+    <div id="corrcoeffTable">
+      $corrcoeffTable
+    </div>
+
+HTML
 }
 
 else
@@ -1194,34 +1255,143 @@ sub getPortfolioList
 sub getPortfolio
 {
   my ($user, $portName, $format) = @_;
-  my @rows;
-  my @covRows;
+
+  # Get the cash value of the portfolio
+  my @cash;
   eval
   {
-    @rows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where email = ? and name = ?", undef, $user, $portName);
-    @covRows = ExecSQL($dbuser, $dbpasswd, "select name, cash from port_portfolio where email = ?", undef, $user);
+    @cash = ExecSQL($dbuser, $dbpasswd, "select cash from port_portfolio where email = ?", "ROW", $user);
   };
   if ($@)
   { 
-    return (undef, undef, $@);
+    return (undef,undef,undef,undef,$@);
   }
- 
-  else
+  my $portfolioCash = $cash[0];
+
+  my @stockRows;
+  eval
   {
-    # Now need the close price of each stock
-    if ($format eq "table")
-    { 
-      return (MakeTable("StockPortfolio", "2DClickable",
-        ["Symbol", "Amount"],
-      @rows), MakeTable("Covariance", "2D",
-        ["Name", "Cash Value"],
-      @covRows), $@);
-    }
-    else 
-    {
-      return (MakeRaw("individual_data","2D",@rows),$@);
-    }
+    @stockRows = ExecSQL($dbuser, $dbpasswd, "select symbol, amount from port_stocksUser where email = ? and name = ?", undef, $user, $portName);
+  };
+  if ($@)
+  { 
+    return (undef,undef,undef,undef, $@);
   }
+
+  # Initialize variables
+  my $stockSymbol;
+  my $stockAmount;
+  my @coeffVariation;
+  my @stockPrice;
+  my $portfolioStockValue = 0;
+  my ($mean_f1,$std_f1, $mean_f2, $std_f2);
+  my $covar;
+  my $beta;
+  my $count;
+  my $entries;
+
+  foreach(@stockRows)
+  {
+    # Get the stock's symbol and how much is in the portfolio
+    $stockSymbol = $_->[0];
+    $stockAmount = $_->[1];
+    # Get the most recent price of the stock
+    eval
+    {
+      @stockPrice = ExecSQL($dbuser, $dbpasswd, "select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2", "COL",$stockSymbol, $stockSymbol);
+    };
+    if ($@)
+    { 
+      return (undef,undef,undef,undef,$@);
+    }
+    # Add to the running total of the portfolio's stock value
+    $portfolioStockValue += $stockPrice[0]*$stockAmount;
+    # push the stock's price and value into the stockRow
+    push(@$_, sprintf('%3.2f',$stockPrice[0]));
+    push(@$_, sprintf('%3.2f',$stockPrice[0]*$stockAmount));
+
+    # Get the stock's coefficient of variation
+    eval
+    {
+      @coeffVariation = ExecSQL($dbuser, $dbpasswd, "select stddev(close)/avg(close) from port_stocksDaily where symbol=?","ROW",$stockSymbol);
+    };
+    if ($@)
+    { 
+      return (undef,undef,undef,undef,$@);
+    }
+    # Push the stock's coefficient of variation into the stockRow
+    push(@$_, sprintf('%3.4f',$coeffVariation[0]));
+
+    # Get the stocks beta
+
+    # Find out if the beta for this stock has a cached value for the stock data currently available
+    eval
+    {
+      ($count) = ExecSQL($dbuser,$dbpasswd,"select count(*) from port_stocksDaily where symbol=?","COL",$stockSymbol);
+      ($entries, $beta) = ExecSQL($dbuser,$dbpasswd,"select entries, beta from port_betaCache where symbol=?","ROW",$stockSymbol);
+    };
+    if ($@)
+    {
+      return (undef,undef,undef,undef,$@);
+    }
+    # If the beta value hasn't been cached since new data was added, calculate it
+    if($count != $entries)
+    {
+      eval
+      {
+        ($mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=?","ROW",$stockSymbol);
+      };
+      if ($@)
+      { 
+        return (undef,undef,undef,undef,$@);
+      }
+      eval
+      {
+        ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
+      };
+      if ($@)
+      { 
+        return (undef,undef,undef,undef,$@);
+      }
+      $beta = $covar/($std_f1*$std_f2);
+
+      # Store the beta value in the cache
+      eval
+      {
+        if (defined $entries)
+        {
+          ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+        }
+        else
+        {
+          ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+        }
+      };
+      if ($@)
+      { 
+        return (undef,undef,undef,undef,$@);
+      }
+    }
+
+    # Push the stock's beta into the stockRow
+    push(@$_, sprintf('%3.4f',$beta));
+
+  }
+
+  # Calculate total portfolio value
+  my $portfolioTotalValue = sprintf('%3.2f',$portfolioCash + $portfolioStockValue);
+
+  # Round off cash value and stock value
+  $portfolioCash = sprintf('%3.2f',$portfolioCash);
+  $portfolioStockValue = sprintf('%3.2f',$portfolioStockValue);
+ 
+  return ($portfolioCash,
+    $portfolioStockValue,
+    $portfolioTotalValue,
+    MakeTable("StockPortfolio", "2DClickable", ["Symbol", "Quantity", "Price", "Value", "COV", "Beta"],
+    @stockRows),
+    $@);
+    
 }
 
 sub getStockPredictions
