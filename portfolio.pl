@@ -48,6 +48,7 @@ my @sqloutput=();
 #
 use Time::ParseDate;
 use Time::Local;
+use POSIX qw(strftime);
 
 #
 # Tests if a scalar is a number
@@ -475,6 +476,7 @@ elsif ($action eq "portfolio")
 
 HTML
   
+  my $date = strftime "%m/%d/%Y", localtime;
   my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, undef, undef);
   if(!$error and !$c_error)
@@ -500,16 +502,31 @@ HTML
           </div>
           <div class="content" id="covariancePanel">
             <form id="covarTimeForm">
-              <div class="column">
-                <input class="datePicker" type="text" value="">
-                <input class="datePicker" type="text" value="">
-                <input type="submit" class="button" value="Submit">
+              <div class="row">
+                <div class="large-6 column">
+                  <label>Start
+                    <input class="datePicker" id="startDate" type="text" value="01/01/1925"></input>
+                  </label>
+                </div>
+                <div class="large-6 column">
+                  <label>End
+                    <input class="datePicker" id="endDate" type="text" value="$date"></input>
+                  </label>
+                </div>
+                <div class="large-12 column">
+                  <input type="hidden" id="portName" value="$portName">
+                  <input type="submit" class="button" value="Submit" style="float:right;"></input>
+                </div>
               </div>
             </form>
-            $covarTable
+            <div id="covarTable">
+              $covarTable
+            </div>
           </div>
           <div class="content" id="corrcoeffPanel">
-            $corrcoeffTable
+            <div id="corrcoeffTable">
+              $corrcoeffTable
+            </div>
           </div>
         </div>
       </div>
@@ -601,6 +618,19 @@ HTML
 
 HTML
   }
+}
+
+# Only used for javascript request
+elsif ($action eq "covar")
+{
+  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
+  $pageContent = << "HTML"
+    <div id="covarTable">
+      $covarTable
+    </div>
+
+HTML
 }
 
 else

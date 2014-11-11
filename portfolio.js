@@ -22,9 +22,19 @@ $(document).ready(function() {
 
    //Add datepicker to all input elements with id=datepicker
    $('.datePicker').fdatepicker()
-   //
-   $('#covarTimeForm').on('submit', function () {
-       alert('Form submitted!');
+
+   //Change data in covarTable based on input date range
+   $('#covarTimeForm').submit( function (event) {
+      event.preventDefault();
+      var startDate = Date.parse($('#startDate').val())/1000;
+      var endDate = Date.parse($('#endDate').val())/1000;
+      var portName = $('#portName').val();
+      $("#covarTable").load("portfolio.pl #covarTable",{
+         act: "covar",
+         portName: portName,
+         startDate: startDate,
+         endDate: endDate
+      });
        return false;
    });
 });
