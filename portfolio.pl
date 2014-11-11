@@ -547,8 +547,9 @@ elsif ($action eq "stock")
 
 HTML
   
-  my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
-  if(!$error)
+  # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  my $stockHistory = getStockHistory($user, $stockName, $defaultStart, $defaultEnd);
+  if(1) # if !$error
   {
     $pageContent = << "HTML";
 
@@ -1184,6 +1185,19 @@ sub getPortfolio
       return (MakeRaw("individual_data","2D",@rows),$@);
     }
   }
+}
+
+sub getStockHistory
+{
+  my ($user, $stock, $start, $end) = @_;
+
+    my $history = << "HTML";
+    <div class="row">
+      
+    </div>
+HTML
+
+  return $history;
 }
 
 #
