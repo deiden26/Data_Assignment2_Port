@@ -337,6 +337,7 @@ print << 'HTML';
   <!-- CSS needed for foundation -->
   <link rel="stylesheet" href="foundation-5/css/normalize.css">
   <link rel="stylesheet" href="foundation-5/css/foundation.min.css">
+  <link rel="stylesheet" href="foundation-5/css/foundation-datepicker.css">
 
   <!-- CSS for Portfolio -->
   <link rel="stylesheet" href="portfolio.css">
@@ -498,6 +499,13 @@ HTML
             $strStock
           </div>
           <div class="content" id="covariancePanel">
+            <form id="covarTimeForm">
+              <div class="column">
+                <input class="datePicker" type="text" value="">
+                <input class="datePicker" type="text" value="">
+                <input type="submit" class="button" value="Submit">
+              </div>
+            </form>
             $covarTable
           </div>
           <div class="content" id="corrcoeffPanel">
@@ -774,6 +782,7 @@ for(my $i=1; $i<=31; $i++) {
   <!-- Javascript needed for foundation -->
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
+  <script src="foundation-5/js/foundation-datepicker.js"></script>
   <script>\$(document).foundation();</script>
   <script src="portfolio.js"></script>
 </body>
