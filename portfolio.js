@@ -27,8 +27,42 @@ $(document).ready(function() {
        return false;
    });
 
-   $('#stockHistoryForm').on('submit', function() {
-      // Now we need to generate a graph based on the dates and stuff
+   var generateLabels = function() {
+      var interval = 1, // 1 day interval
+         currentDate = new Date(document.getElementsByName('startDate')[0].value),
+         endDate = new Date(document.getElementsByName('endDate')[0].value),
+         between = [];
       
-   })
+      while (currentDate <= endDate) {
+         if (currentDate.getDay() != 0 && currentDate.getDay() != 6) {
+            between.push(currentDate.toDateString());
+         }
+         currentDate.setDate(currentDate.getDate() + 1);
+      }
+      return between;
+   }
+
+   var history = $('#historyPage').text();
+   if (history != '') {
+      history = history.split(/\s+/);
+      var labels = generateLabels();
+      var data = {
+         labels: labels,
+         datasets: [{
+            label: "Closing prices",
+            strokeColor: "rgba(220,220,220,1)",
+            pointColor: "rgba(220,220,220,1)",
+            pointStrokeColor: "#fff",
+            pointHighlightFill: "#fff",
+            pointHighlightStroke: "rgba(220,220,220,1)",
+            data: history
+         }]
+      };
+      
+      var ctx = document.getElementById("stockHistoryGraph").getContext("2d");
+      var lineChart = new Chart(ctx).Line(data, {
+         datasetFill: false
+      });
+   }
+
 });

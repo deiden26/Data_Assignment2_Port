@@ -97,6 +97,10 @@ my $pageContent = undef;
 my $timestamp = undef;
 my $startTimestamp = undef;
 my $endTimestamp = undef;
+my @history = undef;
+
+my $startDate = '11/01/2005';
+my $endDate = '11/10/2005';
 
 #
 # Used for displaying form completion errors
@@ -311,10 +315,9 @@ if ($action eq "addStockData")
 if ($action eq "history")
 {
   $stockName = param('stockName');
-  $formError = getHistory($stockName, param('startDate'), param('endDate'));
-  if (defined $formError) {
-    $showError = 'inline';
-  }
+  $startDate = param('startDate');
+  $endDate = param('endDate');
+  @history = getHistory($stockName, $startDate, $endDate);
   $action = 'stock';
 }
 
@@ -602,6 +605,8 @@ HTML
             </div>
           </div>
         </div>
+      <div id="historyPage" style="display:none">@history</div>
+
       </div>
 
 HTML
@@ -775,6 +780,10 @@ for(my $i=1; $i<=31; $i++) {
       <div class="large-3 column">
         <label>Year 
           <select name="year">
+            <option value='2006'>2006</option>
+            <option value='2007'>2007</option>
+            <option value='2008'>2008</option>
+            <option value='2009'>2009</option>
             <option value='2010'>2010</option>
             <option value='2011'>2011</option>
             <option value='2012'>2012</option>
@@ -1218,18 +1227,19 @@ sub getStockHistory
   my ($user, $stock) = @_;
 
     my $history = << "HTML";
+    <p>Insert a date range before 2006. Or enter your own stock data.</p>
     <form id="stockHistoryForm" action="portfolio.pl" method="get">
       <input type="hidden" name="act" value="history">
       <input type="hidden" name="stockName" value=$stock>
       <div class="row">
         <div class="large-4 columns">
           <label>Start date
-            <input class="datePicker" type="text" name="startDate" value="">
+            <input class="datePicker" type="text" name="startDate" value="$startDate">
           </label>
         </div>
         <div class="large-4 columns">
           <label>End date
-            <input class="datePicker" type="text" name="endDate" value="">
+            <input class="datePicker" type="text" name="endDate" value="$endDate">
           </label>
         </div>
         <div class="large-4 columns"></div>
@@ -1238,6 +1248,7 @@ sub getStockHistory
         <input type="submit" class="button" value="Update">
       </div>
     </form>
+    <canvas id="stockHistoryGraph" width="400" height="400"></canvas>
 HTML
 
   # now we need a graph plotting time for these dates as well as their price
@@ -1246,17 +1257,22 @@ HTML
 
 sub getHistory
 {
-  my ($stock, $startDate, $endDate) = @_;
+  my ($stock, $start, $end) = @_;
   # Parse date strings and convert to timestamp
   # Then query database for proper times and stuff
-  my ($startDay, $startMonth, $startYear) = split(/\//, $startDate);
-  my ($endDay, $endMonth, $endYear) = split(/\//, $endDate);
+  my ($startMonth, $startDay, $startYear) = split(/\//, $start);
+  my ($endMonth, $endDay, $endYear) = split(/\//, $end);
 
-  $startTimestamp = timelocal(0, 59, 23, $startDay, $startMonth-1, $startYear);
+  # Beginning of first day
+  $startTimestamp = timelocal(0, 0, 0, $startDay, $startMonth-1, $startYear);
+  # End of last day
   $endTimestamp = timelocal(0, 59, 23, $endDay, $endMonth-1, $endYear);
 
+  # Now basically query the database for close dates for apple between these timestamps
+  my @col;
+  eval{@col = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>? and timestamp<? and symbol=?", "COL", $startTimestamp, $endTimestamp, $stock);};
 
-  # eval{ExecSQL($dbuser, $dbpasswd, "insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)", undef, $stockName, $timestamp, $open, $high, $low, $close, $volume);};
+  return @col;
 }
 
 #
