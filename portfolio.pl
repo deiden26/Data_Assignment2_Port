@@ -524,6 +524,24 @@ HTML
             </div>
           </div>
           <div class="content" id="corrcoeffPanel">
+            <form id="corrcoeffTimeForm">
+              <div class="row">
+                <div class="large-6 column">
+                  <label>Start
+                    <input class="datePicker" id="startDate" type="text" value="01/01/1925"></input>
+                  </label>
+                </div>
+                <div class="large-6 column">
+                  <label>End
+                    <input class="datePicker" id="endDate" type="text" value="$date"></input>
+                  </label>
+                </div>
+                <div class="large-12 column">
+                  <input type="hidden" id="portName" value="$portName">
+                  <input type="submit" class="button" value="Submit" style="float:right;"></input>
+                </div>
+              </div>
+            </form>
             <div id="corrcoeffTable">
               $corrcoeffTable
             </div>
@@ -620,7 +638,7 @@ HTML
   }
 }
 
-# Only used for javascript request
+# Just get the table of covariences for a given time frame (only used for javascript request)
 elsif ($action eq "covar")
 {
   my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
@@ -628,6 +646,19 @@ elsif ($action eq "covar")
   $pageContent = << "HTML"
     <div id="covarTable">
       $covarTable
+    </div>
+
+HTML
+}
+
+# Just get the table of correlation coefficients for a given time frame (only used for javascript request)
+elsif ($action eq "corrcoeff")
+{
+  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
+  $pageContent = << "HTML"
+    <div id="corrcoeffTable">
+      $corrcoeffTable
     </div>
 
 HTML
