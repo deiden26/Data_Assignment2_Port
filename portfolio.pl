@@ -96,6 +96,12 @@ my $password = undef;
 my $menuOptions = undef;
 my $pageContent = undef;
 my $timestamp = undef;
+my $startTimestamp = undef;
+my $endTimestamp = undef;
+my @history = undef;
+
+my $startDate = '11/01/2005';
+my $endDate = '11/10/2005';
 
 #
 # Used for displaying form completion errors
@@ -301,6 +307,19 @@ if ($action eq "addStockData")
   }
   $action = 'stock';
   #$run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# History Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "history")
+{
+  $stockName = param('stockName');
+  $startDate = param('startDate');
+  $endDate = param('endDate');
+  @history = getHistory($stockName, $startDate, $endDate);
+  $action = 'stock';
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -590,8 +609,9 @@ elsif ($action eq "stock")
 
 HTML
   
-  my ($cashVal, $stockVal, $totalVal, $strStock, $error) = getPortfolio($user, $portName, "table");
-  if(!$error)
+  # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  my $stockHistory = getStockHistory($user, $stockName);
+  if(1) # if !$error
   {
     $pageContent = << "HTML";
 
@@ -610,16 +630,18 @@ HTML
           </dl>
           <div class="tabs-content">
             <div class="content active" id="historyPanel">
-              $strStock
+              $stockHistory
             </div>
             <div class="content" id="predictionPanel">
-              $strStock
+              $stockHistory
             </div>
             <div class="content" id="autoTradePanel">
-              $strStock
+              $stockHistory
             </div>
           </div>
         </div>
+      <div id="historyPage" style="display:none">@history</div>
+
       </div>
 
 HTML
@@ -819,6 +841,10 @@ for(my $i=1; $i<=31; $i++) {
       <div class="large-3 column">
         <label>Year 
           <select name="year">
+            <option value='2006'>2006</option>
+            <option value='2007'>2007</option>
+            <option value='2008'>2008</option>
+            <option value='2009'>2009</option>
             <option value='2010'>2010</option>
             <option value='2011'>2011</option>
             <option value='2012'>2012</option>
@@ -844,6 +870,7 @@ for(my $i=1; $i<=31; $i++) {
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
   <script src="foundation-5/js/foundation-datepicker.js"></script>
+  <script src="foundation-5/js/Chart.js"></script>
   <script>\$(document).foundation();</script>
   <script src="portfolio.js"></script>
 </body>
@@ -1363,6 +1390,59 @@ sub getPortfolio
     @stockRows),
     $@);
     
+}
+
+sub getStockHistory
+{
+  my ($user, $stock) = @_;
+
+    my $history = << "HTML";
+    <p>Insert a date range before 2006. Or enter your own stock data.</p>
+    <form id="stockHistoryForm" action="portfolio.pl" method="get">
+      <input type="hidden" name="act" value="history">
+      <input type="hidden" name="stockName" value=$stock>
+      <div class="row">
+        <div class="large-4 columns">
+          <label>Start date
+            <input class="datePicker" type="text" name="startDate" value="$startDate">
+          </label>
+        </div>
+        <div class="large-4 columns">
+          <label>End date
+            <input class="datePicker" type="text" name="endDate" value="$endDate">
+          </label>
+        </div>
+        <div class="large-4 columns"></div>
+      </div>
+      <div class="row">
+        <input type="submit" class="button" value="Update">
+      </div>
+    </form>
+    <canvas id="stockHistoryGraph" width="400" height="400"></canvas>
+HTML
+
+  # now we need a graph plotting time for these dates as well as their price
+  return $history;
+}
+
+sub getHistory
+{
+  my ($stock, $start, $end) = @_;
+  # Parse date strings and convert to timestamp
+  # Then query database for proper times and stuff
+  my ($startMonth, $startDay, $startYear) = split(/\//, $start);
+  my ($endMonth, $endDay, $endYear) = split(/\//, $end);
+
+  # Beginning of first day
+  $startTimestamp = timelocal(0, 0, 0, $startDay, $startMonth-1, $startYear);
+  # End of last day
+  $endTimestamp = timelocal(0, 59, 23, $endDay, $endMonth-1, $endYear);
+
+  # Now basically query the database for close dates for apple between these timestamps
+  my @col;
+  eval{@col = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>? and timestamp<? and symbol=?", "COL", $startTimestamp, $endTimestamp, $stock);};
+
+  return @col;
 }
 
 #
