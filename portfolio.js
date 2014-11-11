@@ -9,7 +9,6 @@ $(document).ready(function() {
             var name = $(this).parents("tr").not(":first-child").find("td:first").text();
             if(name)
             {
-         		console.log('uhhhh');
          		if (pageType == 'PortfolioList') {
          			console.log('portfoliolist');
          			window.location.href = 'portfolio.pl?act=portfolio&portName=' + name;
@@ -27,4 +26,9 @@ $(document).ready(function() {
        alert('Form submitted!');
        return false;
    });
+
+   $('#stockHistoryForm').on('submit', function() {
+      // Now we need to generate a graph based on the dates and stuff
+      
+   })
 });

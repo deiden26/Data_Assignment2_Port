@@ -95,6 +95,8 @@ my $password = undef;
 my $menuOptions = undef;
 my $pageContent = undef;
 my $timestamp = undef;
+my $startTimestamp = undef;
+my $endTimestamp = undef;
 
 #
 # Used for displaying form completion errors
@@ -300,6 +302,20 @@ if ($action eq "addStockData")
   }
   $action = 'stock';
   #$run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# History Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "history")
+{
+  $stockName = param('stockName');
+  $formError = getHistory($stockName, param('startDate'), param('endDate'));
+  if (defined $formError) {
+    $showError = 'inline';
+  }
+  $action = 'stock';
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -556,7 +572,7 @@ elsif ($action eq "stock")
 HTML
   
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
-  my $stockHistory = getStockHistory($user, $stockName, $defaultStart, $defaultEnd);
+  my $stockHistory = getStockHistory($user, $stockName);
   if(1) # if !$error
   {
     $pageContent = << "HTML";
@@ -576,13 +592,13 @@ HTML
           </dl>
           <div class="tabs-content">
             <div class="content active" id="historyPanel">
-              $strStock
+              $stockHistory
             </div>
             <div class="content" id="predictionPanel">
-              $strCov
+              $stockHistory
             </div>
             <div class="content" id="autoTradePanel">
-              $strStock
+              $stockHistory
             </div>
           </div>
         </div>
@@ -784,6 +800,7 @@ for(my $i=1; $i<=31; $i++) {
   <script src="foundation-5/js/jquery.js"></script>
   <script src="foundation-5/js/foundation.min.js"></script>
   <script src="foundation-5/js/foundation-datepicker.js"></script>
+  <script src="foundation-5/js/Chart.js"></script>
   <script>\$(document).foundation();</script>
   <script src="portfolio.js"></script>
 </body>
@@ -1198,15 +1215,48 @@ sub getPortfolio
 
 sub getStockHistory
 {
-  my ($user, $stock, $start, $end) = @_;
+  my ($user, $stock) = @_;
 
     my $history = << "HTML";
-    <div class="row">
-      
-    </div>
+    <form id="stockHistoryForm" action="portfolio.pl" method="get">
+      <input type="hidden" name="act" value="history">
+      <input type="hidden" name="stockName" value=$stock>
+      <div class="row">
+        <div class="large-4 columns">
+          <label>Start date
+            <input class="datePicker" type="text" name="startDate" value="">
+          </label>
+        </div>
+        <div class="large-4 columns">
+          <label>End date
+            <input class="datePicker" type="text" name="endDate" value="">
+          </label>
+        </div>
+        <div class="large-4 columns"></div>
+      </div>
+      <div class="row">
+        <input type="submit" class="button" value="Update">
+      </div>
+    </form>
 HTML
 
+  # now we need a graph plotting time for these dates as well as their price
   return $history;
+}
+
+sub getHistory
+{
+  my ($stock, $startDate, $endDate) = @_;
+  # Parse date strings and convert to timestamp
+  # Then query database for proper times and stuff
+  my ($startDay, $startMonth, $startYear) = split(/\//, $startDate);
+  my ($endDay, $endMonth, $endYear) = split(/\//, $endDate);
+
+  $startTimestamp = timelocal(0, 59, 23, $startDay, $startMonth-1, $startYear);
+  $endTimestamp = timelocal(0, 59, 23, $endDay, $endMonth-1, $endYear);
+
+
+  # eval{ExecSQL($dbuser, $dbpasswd, "insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)", undef, $stockName, $timestamp, $open, $high, $low, $close, $volume);};
 }
 
 #
