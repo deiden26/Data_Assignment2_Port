@@ -456,6 +456,7 @@ if ($action eq "login")
   if (!$run)
   { 
     $menuOptions = '';
+
     $pageContent = << "HTML";
     <br>
     <div class="row">
@@ -473,6 +474,26 @@ if ($action eq "login")
           <input type="submit" value="Login" name="submitType" class="button" style="float:right;">
           <input type="submit" value="Register" name="submitType" class="button" style="float:left;">
         <form>
+      </div>
+    </div>
+    <div class="row text-center">
+      <div class="large-2 column">
+        <a href="Story Board.pdf" download="Story Board.pdf">Story Board</a>
+      </div>
+      <div class="large-2 column">
+        <a href="Story Board.pdf" download="Story Board.pdf">ER Diagram</a>
+      </div>
+      <div class="large-2 column">
+        <a href="Story Board.pdf" download="Story Board.pdf">Relational Model</a>
+      </div>
+      <div class="large-2 column">
+        <a href="setup.sql" download="setup.sql">SQL DDL</a>
+      </div>
+      <div class="large-2 column">
+        <a href="setup.sql" download="setup.sql">SQL DML, DQL</a>
+      </div>
+      <div class="large-2 column">
+        <a href="Story Board.pdf" download="Story Board.pdf">Website Code</a>
       </div>
     </div>
 HTML
