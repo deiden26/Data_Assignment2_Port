@@ -94,6 +94,7 @@ my $portName = undef;
 my $stockName = undef;
 my $password = undef;
 my $menuOptions = undef;
+my $modalViews = undef;
 my $pageContent = undef;
 my $timestamp = undef;
 my $startTimestamp = undef;
@@ -293,6 +294,21 @@ if ($action eq "transferMoney")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# withdrawMoney Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "withdrawMoney")
+{
+  $formError = withdrawMoney(param('portName'),param('cash'),$user);
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "portfolio";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # addStockData logic
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -435,6 +451,72 @@ elsif ($action eq "list")
 
 HTML
 
+  $modalViews = << "HTML";
+
+  <!-- Add Portfolio -->
+  <div id="addPortfolio" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Create a Portfolio</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="addPortfolio">
+          <input type="hidden" name="run" value="1">
+          Name
+          <input type="text" name="name">
+          Initial Cash Value
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Create" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Delete Portfolio -->
+  <div id="deletePortfolio" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Delete a Portfolio</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="deletePortfolio">
+          <input type="hidden" name="run" value="1">
+          Name
+          <input type="text" name="name">
+          Password
+          <input type="password" name="password">
+          <br><br>
+          <input type="submit" value="Delete" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Transfer Money -->
+  <div id="transferMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Transfer Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="transferMoney">
+          <input type="hidden" name="run" value="1">
+          From
+          <input type="text" name="nameMinus">
+          To
+          <input type="text" name="namePlus">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Transfer" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+HTML
+
   my ($str,$error) = getPortfolioList($user,"table");
   if(!$error)
   {
@@ -478,10 +560,10 @@ elsif ($action eq "portfolio")
   $menuOptions = << "HTML";
 
    <li>
-      <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
+      <a href="#" data-reveal-id="withdrawMoney">Withdraw</a>
     </li>
     <li>
-      <a href="#" data-reveal-id="depositStock">Deposit</a>
+      <a href="#" data-reveal-id="depositMoney">Deposit</a>
     </li>
     <li>
       <a href="#" data-reveal-id="sellStock">Sell</a>
@@ -492,6 +574,29 @@ elsif ($action eq "portfolio")
     <li>
       <a href="portfolio.pl?act=logout">Logout</a>
     </li>
+
+HTML
+
+  $modalViews = << "HTML";
+
+  <!-- Withdaw Money -->
+  <div id="withdrawMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Withdaw Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="withdrawMoney">
+          <input type="hidden" name="portName" value="Test">
+          <input type="hidden" name="run" value="1">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Withdaw" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
 
 HTML
   
@@ -608,6 +713,83 @@ elsif ($action eq "stock")
     </li>
 
 HTML
+
+  my $dateNums = '';
+
+  for(my $i=1; $i<=31; $i++) {
+    $dateNums = $dateNums . '<option value="' . $i . '">' . $i . '</option>';
+  }
+
+  $modalViews = << "HTML";
+
+  <!-- Add Stock Data -->
+  <div id="addStockData" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Add new stock data for $stockName</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="addStockData">
+          <input type="hidden" name="stockName" value=$stockName>
+          Open
+          <input type="text" name="stockOpen">
+          High
+          <input type="text" name="stockHigh">
+          Low
+          <input type="text" name="stockLow">
+          Close
+          <input type="text" name="stockClose">
+          Volume
+          <input type="text" name="stockVolume">
+      </div>
+      <div class="large-4 column">
+        <label>Month
+          <select name="month">
+            <option value='1'>January</option>
+            <option value='2'>February</option>
+            <option value='3'>March</option>
+            <option value='4'>April</option>
+            <option value='5'>May</option>
+            <option value='6'>June</option>
+            <option value='7'>July</option>
+            <option value='8'>August</option>
+            <option value='9'>September</option>
+            <option value='10'>October</option>
+            <option value='11'>November</option>
+            <option value='12'>December</option>
+          </select>
+        </label>
+      </div>
+      <div class="large-2 column">
+        <label>Day
+          <select name="day">
+            $dateNums
+          </select>
+        </label>
+      </div>
+      <div class="large-3 column">
+        <label>Year 
+          <select name="year">
+            <option value='2006'>2006</option>
+            <option value='2007'>2007</option>
+            <option value='2008'>2008</option>
+            <option value='2009'>2009</option>
+            <option value='2010'>2010</option>
+            <option value='2011'>2011</option>
+            <option value='2012'>2012</option>
+            <option value='2013'>2013</option>
+            <option value='2014'>2014</option>
+          </select>
+        </label>
+      </div>
+      <div class="large-3 column"></div>
+    </div>
+          <br><br>
+          <input type="submit" value="Submit" class="button" style="float:right;">
+        </form>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+HTML
   
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my $stockHistory = getStockHistory($user, $stockName);
@@ -695,12 +877,6 @@ else
 # PRINT OUT ALL HTML HERE
 #
 
-my $dateNums = '';
-
-for(my $i=1; $i<=31; $i++) {
-  $dateNums = $dateNums . '<option value="' . $i . '">' . $i . '</option>';
-}
-
   print << "HTML";
 
   <!-- Menu bar -->
@@ -731,135 +907,7 @@ for(my $i=1; $i<=31; $i++) {
   </div>
 
   <!-- MODALS GALORE - all modals placed here -->
-
-  <!-- Add Portfolio -->
-  <div id="addPortfolio" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Create a Portfolio</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="addPortfolio">
-          <input type="hidden" name="run" value="1">
-          Name
-          <input type="text" name="name">
-          Initial Cash Value
-          <input type="text" name="cash">
-          <br><br>
-          <input type="submit" value="Create" class="button" style="float:right;">
-        </form>
-      </div>
-    </div>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
-
-  <!-- Delete Portfolio -->
-  <div id="deletePortfolio" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Delete a Portfolio</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="deletePortfolio">
-          <input type="hidden" name="run" value="1">
-          Name
-          <input type="text" name="name">
-          Password
-          <input type="password" name="password">
-          <br><br>
-          <input type="submit" value="Delete" class="button" style="float:right;">
-        </form>
-      </div>
-    </div>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
-
-  <!-- Transfer Money -->
-  <div id="transferMoney" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Transfer Money</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="transferMoney">
-          <input type="hidden" name="run" value="1">
-          From
-          <input type="text" name="nameMinus">
-          To
-          <input type="text" name="namePlus">
-          Amount
-          <input type="text" name="cash">
-          <br><br>
-          <input type="submit" value="Transfer" class="button" style="float:right;">
-        </form>
-      </div>
-    </div>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
-
-  <!-- Add Stock Data -->
-  <div id="addStockData" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Add new stock data for $stockName</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="addStockData">
-          <input type="hidden" name="stockName" value=$stockName>
-          Open
-          <input type="text" name="stockOpen">
-          High
-          <input type="text" name="stockHigh">
-          Low
-          <input type="text" name="stockLow">
-          Close
-          <input type="text" name="stockClose">
-          Volume
-          <input type="text" name="stockVolume">
-      </div>
-      <div class="large-4 column">
-        <label>Month
-          <select name="month">
-            <option value='1'>January</option>
-            <option value='2'>February</option>
-            <option value='3'>March</option>
-            <option value='4'>April</option>
-            <option value='5'>May</option>
-            <option value='6'>June</option>
-            <option value='7'>July</option>
-            <option value='8'>August</option>
-            <option value='9'>September</option>
-            <option value='10'>October</option>
-            <option value='11'>November</option>
-            <option value='12'>December</option>
-          </select>
-        </label>
-      </div>
-      <div class="large-2 column">
-        <label>Day
-          <select name="day">
-            $dateNums
-          </select>
-        </label>
-      </div>
-      <div class="large-3 column">
-        <label>Year 
-          <select name="year">
-            <option value='2006'>2006</option>
-            <option value='2007'>2007</option>
-            <option value='2008'>2008</option>
-            <option value='2009'>2009</option>
-            <option value='2010'>2010</option>
-            <option value='2011'>2011</option>
-            <option value='2012'>2012</option>
-            <option value='2013'>2013</option>
-            <option value='2014'>2014</option>
-          </select>
-        </label>
-      </div>
-      <div class="large-3 column"></div>
-    </div>
-          <br><br>
-          <input type="submit" value="Submit" class="button" style="float:right;">
-        </form>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
+  $modalViews
 
 
   <!-- PAGE CONTENT -->
@@ -1057,6 +1105,26 @@ sub getCovarienceCorrelation
   $corrcoeffTable .= "</tbody>\n"."</table>\n";
 
   return ($covarTable, $corrcoeffTable,undef);
+}
+
+sub withdrawMoney
+{
+  my ($name, $cash, $user) = @_;
+
+  # Make sure cash is a number
+  if (!looks_like_number($cash))
+  {
+    return "Please enter a pure numeric value for \"Amount\"";
+  }
+
+  # Deduct money from the portfolio (will return with error if insufficient funds)
+  eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$name,$user);};
+  if($@)
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+  
+  return;
 }
 
 #
