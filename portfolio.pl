@@ -932,6 +932,9 @@ HTML
               $stockHistory
             </div>
             <div class="content $predictionActive" id="predictionPanel">
+              <form action="portfolio.pl" method="get">
+                <input style="hidden">
+              </form>
               $predictions
             </div>
             <div class="content $autoTradeActive" id="autoTradePanel">
@@ -1729,10 +1732,9 @@ sub getPortfolio
 sub getStockPredictions
 {
   my ($symbol, $steps) = @_;
-  system "get_data.pl --notime --close $symbol > _data.in";
-  system "time_series_project _data.in $steps AR 16 2>/dev/null";
+  my $out = `time_series_symbol_project.pl $symbol $steps AR 16 2>&1`;
 
-  return $symbol;
+  return $out;
 }
 
 sub getStockHistory
@@ -2182,6 +2184,15 @@ sub ExecSQL {
 # find its butt
 #
 BEGIN {
+  $ENV{PATH} = $ENV{PATH}.":/home/cwo258/www/Portfolio";
+  $ENV{PATH} = $ENV{PATH}.":/home/dbe261/www/port";
+  $ENV{PATH} = $ENV{PATH}.":/home/maa935/www/portfolio";
+
+  $ENV{PORTF_DBMS} = "oracle";
+  $ENV{PORTF_DB} = "cs339";
+  $ENV{PORTF_DBUSER} = "dbe261";
+  $ENV{PORTF_DBPASS} = "guest";
+
   unless ($ENV{BEGIN_BLOCK}) {
     use Cwd;
     $ENV{ORACLE_BASE}="/raid/oracle11g/app/oracle/product/11.2.0.1.0";
@@ -2190,13 +2201,6 @@ BEGIN {
     $ENV{LD_LIBRARY_PATH}=$ENV{ORACLE_HOME}."/lib";
     $ENV{BEGIN_BLOCK} = 1;
     exec 'env',cwd().'/'.$0,@ARGV;
-
-    $ENV{PATH} = $ENV{PATH}.":~/www/Portfolio";
-
-    $ENV{PORTF_DBMS} = "oracle";
-    $ENV{PORTF_DB} = "cs339";
-    $ENV{PORTF_DBUSER} = "dbe261";
-    $ENV{PORTF_DBPASS} = "guest";
   }
 }
 
