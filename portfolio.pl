@@ -100,6 +100,7 @@ my $timestamp = undef;
 my $startTimestamp = undef;
 my $endTimestamp = undef;
 my @history = undef;
+my @tsHistory = undef;
 
 my $startDate = '11/01/2005';
 my $endDate = '11/10/2005';
@@ -412,6 +413,7 @@ HTML
 # in the cookie-handling code.  So, here we only show the form if needed
 # 
 #
+
 if ($action eq "login")
 { 
   if (!$run)
@@ -571,7 +573,6 @@ HTML
 elsif ($action eq "portfolio")
 {
   $portName = param("portName");
-
   $menuOptions = << "HTML";
 
    <li>
@@ -869,7 +870,8 @@ HTML
   
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my $stockHistory = getStockHistory($user, $stockName);
-  if(1) # if !$error
+  my $predictions = getStockPredictions($user, $stockName);
+  if($stockHistory) # if !$error
   {
     $pageContent = << "HTML";
 
@@ -891,7 +893,7 @@ HTML
               $stockHistory
             </div>
             <div class="content" id="predictionPanel">
-              $stockHistory
+              $predictions
             </div>
             <div class="content" id="autoTradePanel">
               $stockHistory
@@ -899,6 +901,7 @@ HTML
           </div>
         </div>
       <div id="historyPage" style="display:none">@history</div>
+      <div id="historyPageTs" style="display:none">@tsHistory</div> 
 
       </div>
 
@@ -1384,6 +1387,7 @@ sub addStockData
   my ($open, $high, $low, $close, $volume, $month, $day, $year) = @_;
   # Timestamp after closing time of stock market
   $timestamp = timelocal(0, 59, 23, $day, $month-1, $year);
+  $volume =~ s/[_,-]//g;  # remove commas from volume
 
   eval{ExecSQL($dbuser, $dbpasswd, "insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)", undef, $stockName, $timestamp, $open, $high, $low, $close, $volume);};
 
@@ -1610,7 +1614,7 @@ sub getPortfolio
       return (undef,undef,undef,undef,$@);
     }
     # If the beta value hasn't been cached since new data was added, calculate it
-    if($count != $entries)
+    if(!(defined $entries) or $count != $entries)
     {
       eval
       {
@@ -1620,36 +1624,50 @@ sub getPortfolio
       { 
         return (undef,undef,undef,undef,$@);
       }
-      eval
-      {
-        ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
-      };
-      if ($@)
-      { 
-        return (undef,undef,undef,undef,$@);
-      }
-      $beta = $covar/($std_f1*$std_f2);
 
-      # Store the beta value in the cache
-      eval
+      if (!(defined $std_f1) or !(defined $std_f2) or $std_f1 == 0 or $std_f2 == 0)
       {
-        if (defined $entries)
+        $beta = 'NODAT';
+      }
+      else
+      {
+        eval
         {
-          ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+          ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
+        };
+        if ($@)
+        { 
+          return (undef,undef,undef,undef,$@);
         }
-        else
+        $beta = $covar/($std_f1*$std_f2);
+        # Store the beta value in the cache
+        eval
         {
-          ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+          if (defined $entries)
+          {
+            ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+          }
+          else
+          {
+            ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+          }
+        };
+        if ($@)
+        { 
+          return (undef,undef,undef,undef,$@);
         }
-      };
-      if ($@)
-      { 
-        return (undef,undef,undef,undef,$@);
       }
     }
 
     # Push the stock's beta into the stockRow
-    push(@$_, sprintf('%3.4f',$beta));
+    if ($beta eq 'NODAT')
+    {
+      push(@$_, $beta);
+    }
+    else
+    {
+      push(@$_, sprintf('%3.4f',$beta));
+    }
 
   }
 
@@ -1667,6 +1685,12 @@ sub getPortfolio
     @stockRows),
     $@);
     
+}
+
+sub getStockPredictions
+{
+  
+  return;
 }
 
 sub getStockHistory
@@ -1711,15 +1735,19 @@ sub getHistory
   my ($endMonth, $endDay, $endYear) = split(/\//, $end);
 
   # Beginning of first day
-  $startTimestamp = timelocal(0, 0, 0, $startDay, $startMonth-1, $startYear);
+  $startTimestamp = timelocal(0, 1, 0, $startDay, $startMonth-1, $startYear);
   # End of last day
   $endTimestamp = timelocal(0, 59, 23, $endDay, $endMonth-1, $endYear);
 
   # Now basically query the database for close dates for apple between these timestamps
-  my @col;
-  eval{@col = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>? and timestamp<? and symbol=?", "COL", $startTimestamp, $endTimestamp, $stock);};
+  my @colClose;
+  my @colTimestamp;
+  eval{
+    @colClose = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>=? and timestamp<=? and symbol=? order by timestamp", "COL", $startTimestamp, $endTimestamp, $stock);
+    @colTimestamp = ExecSQL($dbuser, $dbpasswd, "select timestamp from port_stocksDaily where timestamp>? and timestamp<? and symbol=? order by timestamp", "COL", $startTimestamp, $endTimestamp, $stock);
+  };
 
-  return @col;
+  return (@colClose, @colTimestamp);
 }
 
 #
