@@ -1,0 +1,159 @@
+SQL Querries
+
+Get Covariance Correlation
+-------------------------------
+
+select symbol from port_stocksUser where email=? and name=?
+#Get the means
+select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?
+
+select count(*), avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=? and s2.symbol=?
+
+#Get the covariances
+select avg( (s1.close -  ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=? and s1.timestamp>=? and s1.timestamp<=?
+
+select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=? and s2.symbol=?
+
+Add/Withdraw money
+------------------------------
+update port_portfolio set cash = cash ".$operator." ? where name=? and email=?
+
+Buy Stock
+------------------------------
+#is the stock in the database?
+select count(*) from port_stocksDaily where symbol=? and rownum = 1
+
+#Get the price
+select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2
+
+#deduct money from account 
+SAVEPOINT buy_save
+update port_portfolio set cash = cash - ? where name=? and email=?
+
+#See how many shares already owned
+select count(*) from port_stocksUser where name=? and email=? and symbol=?
+
+#Insert if they don't own any shares yet
+insert into port_stocksUser (symbol, amount, name, email) values (?,?,?,?)
+
+#Otherwise update
+update port_stocksUser set amount = amount + ? where name=? and email=? and symbol=?
+
+COMMIT
+
+Sell Stock
+--------------------------------
+#How many shares do they own?
+select count(*) from port_stocksUser where name=? and email=? and symbol=?
+
+SAVEPOINT sell_save
+#Deduct stocks
+update port_stocksUser set amount = amount - ? where name=? and email=? and symbol=?
+
+#Add money
+update port_portfolio set cash = cash + ? where name=? and email=?
+
+#If they're out of stock, no need to keep the row around
+delete from port_stocksUser where name=? and email=? and symbol=? and amount = 0
+COMMIT
+
+Transfer Money
+---------------------------------
+#Valid portfolio names?
+select count(*) from port_portfolio where email=? and name in (?,?)
+
+SAVEPOINT transaction_save;
+#Update first portfolio
+update port_portfolio set cash = cash - ? where name=? and email=?
+
+#Update second portfolio
+update port_portfolio set cash = cash + ? where name=? and email=?
+COMMIT;
+
+Add Stock Data
+---------------------------------
+insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)
+
+Delete Portfolio
+---------------------------------
+#Double check login
+select count(*) from port_users where email=? and password=?
+
+#Grab all their portfolios with that name
+select count(*) from port_portfolio where name=? and email=?
+
+#Delete
+delete from port_portfolio where name=? and email=?
+
+Add Portfolio
+----------------------------------
+insert into port_portfolio (name, email, cash) values (?,?,?)
+
+Get Portfolio List
+----------------------------------
+select name, cash from port_portfolio where email = ?
+
+#Get all the stocks in the portfolio
+select symbol, amount from port_stocksUser where name = ? and email = ?
+
+#Get most recent prices
+select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2
+
+#Get cash value
+select cash from port_portfolio where email = ? and name = ?
+
+Get Portfolio
+-----------------------------------
+select name, cash from port_portfolio where email = ?
+
+#Get all the stocks in the portfolio
+select symbol, amount from port_stocksUser where name = ? and email = ?
+
+#Get most recent prices
+select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2
+
+#Get COV
+select stddev(close)/avg(close) from port_stocksDaily where symbol=?
+
+Get Stock Values
+------------------------------------
+select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2
+
+#Get COV
+select stddev(close)/avg(close) from port_stocksDaily where symbol=?
+
+Get History
+------------------------------------
+select close, timestamp from port_stocksDaily where timestamp>=? and timestamp<=? and symbol=? order by timestamp
+
+AutoTrade
+------------------------------------
+#Get list of prices
+select close from port_stocksDaily where timestamp>? and timestamp<? and symbol=?
+
+Login or Register
+------------------------------------
+#login
+select count(*) from port_users where email=? and password=?
+
+#register
+insert into port_users (email, password) values (?,?)
+
+Get Beta
+-------------------------------------
+select count(*) from port_stocksDaily where symbol=?
+
+#Check for cached value
+select entries, beta from port_betaCache where symbol=?
+
+#Get Beta
+select avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=?
+
+select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?
+
+#Cache result
+update port_betaCache set symbol=?, beta=?, entries=? where symbol=?
+
+insert into port_betaCache (symbol, beta, entries) values (?,?,?)
+
+

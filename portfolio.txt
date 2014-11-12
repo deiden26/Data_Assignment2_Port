@@ -507,10 +507,10 @@ if ($action eq "login")
         <a href="setup.sql" download="setup.sql">SQL DDL</a>
       </div>
       <div class="large-2 column">
-        <a href="sql_querries.txt" download="sql_querries.txt">SQL DML, DQL</a>
+        <a href="setup.sql" download="setup.sql">SQL DML, DQL</a>
       </div>
       <div class="large-2 column">
-        <a href="portfolio.txt" download="portfolio.txt">Website Code</a>
+        <a href="Story Board.pdf" download="Story Board.pdf">Website Code</a>
       </div>
     </div>
 HTML
