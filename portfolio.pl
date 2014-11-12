@@ -611,6 +611,7 @@ HTML
   
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my $stockHistory = getStockHistory($user, $stockName);
+  my $autoTrade = getAutoTrade($user, $stockName);
   if(1) # if !$error
   {
     $pageContent = << "HTML";
@@ -636,7 +637,7 @@ HTML
               $stockHistory
             </div>
             <div class="content" id="autoTradePanel">
-              $stockHistory
+              $autoTrade
             </div>
           </div>
         </div>
@@ -1423,6 +1424,42 @@ HTML
 
   # now we need a graph plotting time for these dates as well as their price
   return $history;
+}
+
+sub getAutoTrade
+{
+	my ($user, $stock) = @_;
+
+	my $AutoTrade = << "HTML";
+    <p>Insert a date range before 2006.</p>
+    <form id="autoTradeForm" action="portfolio.pl" method="get">
+      <input type="hidden" name="act" value="autotrade">
+      <input type="hidden" name="stockName" value=$stock>
+      <div class="row">
+        <div class="large-4 columns">
+          <label>Start date
+            <input class="datePicker" type="text" name="startDate" value="$startDate">
+          </label>
+        </div>
+        <div class="large-4 columns">
+          <label>End date
+            <input class="datePicker" type="text" name="endDate" value="$endDate">
+          </label>
+        </div>
+        <div class="large-4 columns">
+			<label>Starting Cash
+				<input type="text" name="startCash">
+			</label>
+		</div>
+      </div>
+      <div class="row">
+        <input type="submit" class="button" value="Update">
+      </div>
+    </form>
+    <canvas id="stockHistoryGraph" width="400" height="400"></canvas>
+HTML
+
+	return $AutoTrade;
 }
 
 sub getHistory
