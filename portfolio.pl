@@ -94,11 +94,13 @@ my $portName = undef;
 my $stockName = undef;
 my $password = undef;
 my $menuOptions = undef;
+my $modalViews = undef;
 my $pageContent = undef;
 my $timestamp = undef;
 my $startTimestamp = undef;
 my $endTimestamp = undef;
 my @history = undef;
+my @tsHistory = undef;
 
 my $startDate = '11/01/2005';
 my $endDate = '11/10/2005';
@@ -308,6 +310,36 @@ if ($action eq "transferMoney")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# withdrawMoney & depositMoney Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "withdrawMoney" or $action eq "depositMoney")
+{
+  $formError = withdrawDepostMoney(param('portName'),param('cash'), $action,$user);
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "portfolio";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# buyStock & sellStock Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "buyStock" or $action eq "sellStock")
+{
+  $formError = buySellStock(param('portName'), param('symbol'), param('amount'), $action, $user);
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "portfolio";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # addStockData logic
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
@@ -418,6 +450,7 @@ HTML
 # in the cookie-handling code.  So, here we only show the form if needed
 # 
 #
+
 if ($action eq "login")
 { 
   if (!$run)
@@ -472,6 +505,72 @@ elsif ($action eq "list")
 
 HTML
 
+  $modalViews = << "HTML";
+
+  <!-- Add Portfolio -->
+  <div id="addPortfolio" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Create a Portfolio</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="addPortfolio">
+          <input type="hidden" name="run" value="1">
+          Name
+          <input type="text" name="name">
+          Initial Cash Value
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Create" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Delete Portfolio -->
+  <div id="deletePortfolio" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Delete a Portfolio</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="deletePortfolio">
+          <input type="hidden" name="run" value="1">
+          Name
+          <input type="text" name="name">
+          Password
+          <input type="password" name="password">
+          <br><br>
+          <input type="submit" value="Delete" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Transfer Money -->
+  <div id="transferMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Transfer Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="transferMoney">
+          <input type="hidden" name="run" value="1">
+          From
+          <input type="text" name="nameMinus">
+          To
+          <input type="text" name="namePlus">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Transfer" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+HTML
+
   my ($str,$error) = getPortfolioList($user,"table");
   if(!$error)
   {
@@ -511,24 +610,107 @@ HTML
 elsif ($action eq "portfolio")
 {
   $portName = param("portName");
-
   $menuOptions = << "HTML";
 
    <li>
-      <a href="#" data-reveal-id="withdrawStock">Withdraw</a>
+      <a href="#" data-reveal-id="withdrawMoney">Withdraw</a>
     </li>
     <li>
-      <a href="#" data-reveal-id="depositStock">Deposit</a>
-    </li>
-    <li>
-      <a href="#" data-reveal-id="sellStock">Sell</a>
+      <a href="#" data-reveal-id="depositMoney">Deposit</a>
     </li>
     <li>
       <a href="#" data-reveal-id="buyStock">Buy</a>
     </li>
     <li>
+      <a href="#" data-reveal-id="sellStock">Sell</a>
+    </li>
+    <li>
       <a href="portfolio.pl?act=logout">Logout</a>
     </li>
+
+HTML
+
+  $modalViews = << "HTML";
+
+  <!-- Withdaw Money -->
+  <div id="withdrawMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Withdaw Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="withdrawMoney">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Withdaw" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Deposit Money -->
+  <div id="depositMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Deposit Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="depositMoney">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Deposit" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Buy Stock -->
+  <div id="buyStock" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Buy Stock</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="buyStock">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Symbol
+          <input type="text" name="symbol">
+          Amount
+          <input type="text" name="amount">
+          <br><br>
+          <input type="submit" value="Buy" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Sell Stock -->
+  <div id="sellStock" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Sell Stock</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="sellStock">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Symbol
+          <input type="text" name="symbol">
+          Amount
+          <input type="text" name="amount">
+          <br><br>
+          <input type="submit" value="Sell" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
 
 HTML
   
@@ -645,192 +827,14 @@ elsif ($action eq "stock")
     </li>
 
 HTML
-  
-  # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
-  my $stockHistory = getStockHistory($user, $stockName);
-  my $autoTrade = getAutoTrade($user, $stockName);
-  if(1) # if !$error
-  {
-    $pageContent = << "HTML";
 
-      <br>
-      <div class="row">
-        <div class="large-12 column">
-          <h2>$stockName</h2>
-          <div class="pageType" style="display:none">Stock</div>
-          <p>Price: </p>
-          <p>Variation: </p>
-          <p>Beta: </p>
-          <dl class="tabs" data-tab>
-            <dd class="$historyActive"><a href="#historyPanel">History</a></dd>
-            <dd class="$predictionActive"><a href="#predictionPanel">Prediction</a></dd>
-            <dd class="$autoTradeActive"><a href="#autoTradePanel">Auto-Trade</a></dd>
-          </dl>
-          <div class="tabs-content">
-            <div class="content $historyActive" id="historyPanel">
-              $stockHistory
-            </div>
-            <div class="content $predictionActive" id="predictionPanel">
-              $stockHistory
-            </div>
-            <div class="content $autoTradeActive" id="autoTradePanel">
-              $autoTrade
-            </div>
-          </div>
-        </div>
-      <div id="historyPage" style="display:none">@history</div>
+  my $dateNums = '';
 
-      </div>
-
-HTML
+  for(my $i=1; $i<=31; $i++) {
+    $dateNums = $dateNums . '<option value="' . $i . '">' . $i . '</option>';
   }
-  else
-  {
-    $pageContent = << "HTML"
 
-    <div>
-      <br>
-      <small class="error error-bar">$formError</small>
-      <br>
-    </div>
-
-HTML
-  }
-}
-
-# Just get the table of covariences for a given time frame (only used for javascript request)
-elsif ($action eq "covar")
-{
-  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
-  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
-  $pageContent = << "HTML"
-    <div id="covarTable">
-      $covarTable
-    </div>
-
-HTML
-}
-
-# Just get the table of correlation coefficients for a given time frame (only used for javascript request)
-elsif ($action eq "corrcoeff")
-{
-  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
-  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
-  $pageContent = << "HTML"
-    <div id="corrcoeffTable">
-      $corrcoeffTable
-    </div>
-
-HTML
-}
-
-else
-{
-  print "Error: Invalid action"
-}
-
-#
-# PRINT OUT ALL HTML HERE
-#
-
-my $dateNums = '';
-
-for(my $i=1; $i<=31; $i++) {
-  $dateNums = $dateNums . '<option value="' . $i . '">' . $i . '</option>';
-}
-
-  print << "HTML";
-
-  <!-- Menu bar -->
-  <div class="fixed top-bar-bottom-border">
-    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
-      <ul class="title-area">
-        <li class="name">
-          <h1 class="nav-title">
-            <a href="#" class="nav-title">Gobias</a>
-        </li>
-        <li class="toggle-topbar menu-icon">
-          <a href="#"><span></span></a>
-        </li>
-      </ul>
-      <section class="top-bar-section">
-        <ul class="right">
-          $menuOptions
-        </ul>
-      </section>
-    </nav>
-  </div>
-
-  <!-- Error Message -->
-  <div style="display:$showError;">
-      <br>
-      <small class="error error-bar">$formError</small>
-      <br>
-  </div>
-
-  <!-- MODALS GALORE - all modals placed here -->
-
-  <!-- Add Portfolio -->
-  <div id="addPortfolio" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Create a Portfolio</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="addPortfolio">
-          <input type="hidden" name="run" value="1">
-          Name
-          <input type="text" name="name">
-          Initial Cash Value
-          <input type="text" name="cash">
-          <br><br>
-          <input type="submit" value="Create" class="button" style="float:right;">
-        </form>
-      </div>
-    </div>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
-
-  <!-- Delete Portfolio -->
-  <div id="deletePortfolio" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Delete a Portfolio</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="deletePortfolio">
-          <input type="hidden" name="run" value="1">
-          Name
-          <input type="text" name="name">
-          Password
-          <input type="password" name="password">
-          <br><br>
-          <input type="submit" value="Delete" class="button" style="float:right;">
-        </form>
-      </div>
-    </div>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
-
-  <!-- Transfer Money -->
-  <div id="transferMoney" class="reveal-modal" data-reveal>
-    <div class="row">
-      <div class="large-12 column">
-        <h2>Transfer Money</h2>
-        <form action="portfolio.pl" method="get">
-          <input type="hidden" name="act" value="transferMoney">
-          <input type="hidden" name="run" value="1">
-          From
-          <input type="text" name="nameMinus">
-          To
-          <input type="text" name="namePlus">
-          Amount
-          <input type="text" name="cash">
-          <br><br>
-          <input type="submit" value="Transfer" class="button" style="float:right;">
-        </form>
-      </div>
-    </div>
-    <a class="close-reveal-modal">&#215;</a>
-  </div>
+  $modalViews = << "HTML";
 
   <!-- Add Stock Data -->
   <div id="addStockData" class="reveal-modal" data-reveal>
@@ -898,6 +902,130 @@ for(my $i=1; $i<=31; $i++) {
         </form>
     <a class="close-reveal-modal">&#215;</a>
   </div>
+
+HTML
+  
+  # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
+  my $stockHistory = getStockHistory($user, $stockName);
+  my $autoTrade = getAutoTrade($user, $stockName);
+  if(1) # if !$error
+  my $predictions = getStockPredictions($user, $stockName);
+  if($stockHistory) # if !$error
+  {
+    $pageContent = << "HTML";
+
+      <br>
+      <div class="row">
+        <div class="large-12 column">
+          <h2>$stockName</h2>
+          <div class="pageType" style="display:none">Stock</div>
+          <p>Price: </p>
+          <p>Variation: </p>
+          <p>Beta: </p>
+          <dl class="tabs" data-tab>
+            <dd class="$historyActive"><a href="#historyPanel">History</a></dd>
+            <dd class="$predictionActive"><a href="#predictionPanel">Prediction</a></dd>
+            <dd class="$autoTradeActive"><a href="#autoTradePanel">Auto-Trade</a></dd>
+          </dl>
+          <div class="tabs-content">
+            <div class="content $historyActive" id="historyPanel">
+              $stockHistory
+            </div>
+            <div class="content $predictionActive" id="predictionPanel">
+              $predictions
+            </div>
+            <div class="content $autoTradeActive" id="autoTradePanel">
+              $autoTrade
+            </div>
+          </div>
+        </div>
+      <div id="historyPage" style="display:none">@history</div>
+      <div id="historyPageTs" style="display:none">@tsHistory</div> 
+
+      </div>
+
+HTML
+  }
+  else
+  {
+    $pageContent = << "HTML"
+
+    <div>
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+    </div>
+
+HTML
+  }
+}
+
+# Just get the table of covariences for a given time frame (only used for javascript request)
+elsif ($action eq "covar")
+{
+  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
+  $pageContent = << "HTML"
+    <div id="covarTable">
+      $covarTable
+    </div>
+
+HTML
+}
+
+# Just get the table of correlation coefficients for a given time frame (only used for javascript request)
+elsif ($action eq "corrcoeff")
+{
+  my ($portName, $startDate, $endDate) = (param("portName"), param("startDate"), param("endDate"));
+  my ($covarTable, $corrcoeffTable, $c_error) = getCovarienceCorrelation($user, $portName, $startDate, $endDate);
+  $pageContent = << "HTML"
+    <div id="corrcoeffTable">
+      $corrcoeffTable
+    </div>
+
+HTML
+}
+
+else
+{
+  print "Error: Invalid action"
+}
+
+#
+# PRINT OUT ALL HTML HERE
+#
+
+  print << "HTML";
+
+  <!-- Menu bar -->
+  <div class="fixed top-bar-bottom-border">
+    <nav class="top-bar" data-topbar data-options="scrolltop:false" role="navigation">
+      <ul class="title-area">
+        <li class="name">
+          <h1 class="nav-title">
+            <a href="#" class="nav-title">Gobias</a>
+        </li>
+        <li class="toggle-topbar menu-icon">
+          <a href="#"><span></span></a>
+        </li>
+      </ul>
+      <section class="top-bar-section">
+        <ul class="right">
+          $menuOptions
+        </ul>
+      </section>
+    </nav>
+  </div>
+
+  <!-- Error Message -->
+  <div style="display:$showError;">
+      <br>
+      <small class="error error-bar">$formError</small>
+      <br>
+  </div>
+
+  <!-- MODALS GALORE - all modals placed here -->
+  $modalViews
 
 
   <!-- PAGE CONTENT -->
@@ -1098,6 +1226,159 @@ sub getCovarienceCorrelation
 }
 
 #
+# Transfer money out of a portfolio or into a portfolio
+#
+
+sub withdrawDepostMoney
+{
+  my ($name, $cash, $option, $user) = @_;
+
+  # Make sure cash is a number
+  if (!looks_like_number($cash))
+  {
+    return "Please enter a pure numeric value for \"Amount\"";
+  }
+
+  # get the poper operator
+  my $operator;
+  if ($option eq "depositMoney")
+  {
+    $operator = '+';
+  }
+  elsif ($option eq "withdrawMoney")
+  {
+    $operator = '-';
+  }
+  else
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+
+  # Deduct/add money from/to the portfolio (will return with error if insufficient funds)
+  eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash ".$operator." ? where name=? and email=?",undef,$cash,$name,$user);};
+  if($@)
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+
+  return;
+}
+
+sub buySellStock
+{
+  my ($name, $symbol, $amount, $option, $user) = @_;
+
+  # Make sure cash is a number
+  if (!looks_like_number($amount))
+  {
+    return "Please enter a pure numeric value for \"Amount\"";
+  }
+
+  # Make sure the stock symbol exists in the database
+  my $col;
+  eval
+  {
+    ($col)=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksDaily where symbol=? and rownum = 1","COL",$symbol);
+  };
+  if($@ or $col<=0)
+  {
+    return "No stock with symbol: $symbol exists. Please try again.";
+  }
+
+  # Get the most recent price of the stock
+  my $stockPrice;
+  eval
+  {
+    ($stockPrice) = ExecSQL($dbuser, $dbpasswd, "select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2", "ROW",$symbol, $symbol);
+  };
+  if ($@)
+  { 
+    return $@;
+  }
+
+  # get the cash amount that the user will lose/gain from buying/selling the stocks
+  my $cash = $stockPrice*$amount;
+
+  # Buy or sell the stock
+  if ($option eq "buyStock")
+  {
+    # Deduct money from the portfolio (will return with error if insufficient funds)
+    eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$name,$user);};
+    if($@)
+    {
+      return $@;
+    }
+    # See if the user owns some of this stock
+    my $stockCount;
+    eval
+    {
+      ($stockCount) = ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksUser where name=? and email=? and symbol=?","ROW",$name,$user,$symbol);
+    };
+    if($@)
+    {
+      return $@;
+    }
+    # Add stocks to the portfolio
+    if($stockCount == 0)
+    {
+      eval {ExecSQL($dbuser,$dbpasswd, "insert into port_stocksUser (symbol, amount, name, email) values (?,?,?,?)",undef,$symbol,$amount,$name,$user);};
+    }
+    else
+    {
+      eval {ExecSQL($dbuser,$dbpasswd, "update port_stocksUser set amount = amount + ? where name=? and email=? and symbol=?",undef,$amount,$name,$user,$symbol);};      
+    }
+    if($@)
+    {
+      return $@;
+    }
+  }
+  elsif ($option eq "sellStock")
+  {
+    # Make sure the user owns some of this stock
+    my $stockCount;
+    eval
+    {
+      ($stockCount) = ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksUser where name=? and email=? and symbol=?","ROW",$name,$user,$symbol);
+    };
+    if($@)
+    {
+      return $@;
+    }
+    if ($stockCount == 0)
+    {
+      return "You do not own any stock with symbol: $symbol. Please try again.";
+    }
+
+    # Deduct stocks from the portfolio (will return with error if insufficient amount)
+    eval {ExecSQL($dbuser,$dbpasswd, "update port_stocksUser set amount = amount - ? where name=? and email=? and symbol=?",undef,$amount,$name,$user,$symbol);};
+    if($@)
+    {
+      return $@;
+    }
+    # Add money from/to the portfolio
+    eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash + ? where name=? and email=?",undef,$cash,$name,$user);};
+    if($@)
+    {
+      return $@;
+    }
+    # Remove the stock row if the user no longer owns any of this stock
+    eval {ExecSQL($dbuser,$dbpasswd, "delete from port_stocksUser where name=? and email=? and symbol=? and amount = 0",undef,$name,$user,$symbol);};
+    if($@)
+    {
+      return $@;
+    }
+  }
+  else
+  {
+    return "There was a problem when buying/selling $symbol. Please try again";
+  }
+
+
+  return;
+}
+
+
+#
 # Transfer money from one portfolio to another
 #
 
@@ -1145,6 +1426,7 @@ sub addStockData
   my ($open, $high, $low, $close, $volume, $month, $day, $year) = @_;
   # Timestamp after closing time of stock market
   $timestamp = timelocal(0, 59, 23, $day, $month-1, $year);
+  $volume =~ s/[_,-]//g;  # remove commas from volume
 
   eval{ExecSQL($dbuser, $dbpasswd, "insert into port_stocksDaily (symbol, timestamp, open, high, low, close, volume) values (?, ?, ?, ?, ?, ?, ?)", undef, $stockName, $timestamp, $open, $high, $low, $close, $volume);};
 
@@ -1371,7 +1653,7 @@ sub getPortfolio
       return (undef,undef,undef,undef,$@);
     }
     # If the beta value hasn't been cached since new data was added, calculate it
-    if($count != $entries)
+    if(!(defined $entries) or $count != $entries)
     {
       eval
       {
@@ -1381,36 +1663,50 @@ sub getPortfolio
       { 
         return (undef,undef,undef,undef,$@);
       }
-      eval
-      {
-        ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
-      };
-      if ($@)
-      { 
-        return (undef,undef,undef,undef,$@);
-      }
-      $beta = $covar/($std_f1*$std_f2);
 
-      # Store the beta value in the cache
-      eval
+      if (!(defined $std_f1) or !(defined $std_f2) or $std_f1 == 0 or $std_f2 == 0)
       {
-        if (defined $entries)
+        $beta = 'NODAT';
+      }
+      else
+      {
+        eval
         {
-          ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+          ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
+        };
+        if ($@)
+        { 
+          return (undef,undef,undef,undef,$@);
         }
-        else
+        $beta = $covar/($std_f1*$std_f2);
+        # Store the beta value in the cache
+        eval
         {
-          ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+          if (defined $entries)
+          {
+            ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+          }
+          else
+          {
+            ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+          }
+        };
+        if ($@)
+        { 
+          return (undef,undef,undef,undef,$@);
         }
-      };
-      if ($@)
-      { 
-        return (undef,undef,undef,undef,$@);
       }
     }
 
     # Push the stock's beta into the stockRow
-    push(@$_, sprintf('%3.4f',$beta));
+    if ($beta eq 'NODAT')
+    {
+      push(@$_, $beta);
+    }
+    else
+    {
+      push(@$_, sprintf('%3.4f',$beta));
+    }
 
   }
 
@@ -1428,6 +1724,12 @@ sub getPortfolio
     @stockRows),
     $@);
     
+}
+
+sub getStockPredictions
+{
+  
+  return;
 }
 
 sub getStockHistory
@@ -1519,15 +1821,19 @@ sub getHistory
   my ($endMonth, $endDay, $endYear) = split(/\//, $end);
 
   # Beginning of first day
-  $startTimestamp = timelocal(0, 0, 0, $startDay, $startMonth-1, $startYear);
+  $startTimestamp = timelocal(0, 1, 0, $startDay, $startMonth-1, $startYear);
   # End of last day
   $endTimestamp = timelocal(0, 59, 23, $endDay, $endMonth-1, $endYear);
 
   # Now basically query the database for close dates for apple between these timestamps
-  my @col;
-  eval{@col = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>? and timestamp<? and symbol=?", "COL", $startTimestamp, $endTimestamp, $stock);};
+  my @colClose;
+  my @colTimestamp;
+  eval{
+    @colClose = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>=? and timestamp<=? and symbol=? order by timestamp", "COL", $startTimestamp, $endTimestamp, $stock);
+    @colTimestamp = ExecSQL($dbuser, $dbpasswd, "select timestamp from port_stocksDaily where timestamp>? and timestamp<? and symbol=? order by timestamp", "COL", $startTimestamp, $endTimestamp, $stock);
+  };
 
-  return @col;
+  return (@colClose, @colTimestamp);
 }
 
 sub autoTrade
