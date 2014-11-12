@@ -909,8 +909,7 @@ HTML
   my $stockHistory = getStockHistory($user, $stockName);
   my $autoTrade = getAutoTrade($user, $stockName);
   #if(1) # if !$error
-  #my $predictions = getStockPredictions($user, $stockName);
-  my $predictions;
+  my $predictions = getStockPredictions($stockName, 4);
   if($stockHistory || $predictions || $autoTrade) # if !$error
   {
     $pageContent = << "HTML";
@@ -1729,8 +1728,11 @@ sub getPortfolio
 
 sub getStockPredictions
 {
-  
-  return;
+  my ($symbol, $steps) = @_;
+  system "get_data.pl --notime --close $symbol > _data.in";
+  system "time_series_project _data.in $steps AR 16 2>/dev/null";
+
+  return $symbol;
 }
 
 sub getStockHistory
@@ -2188,6 +2190,13 @@ BEGIN {
     $ENV{LD_LIBRARY_PATH}=$ENV{ORACLE_HOME}."/lib";
     $ENV{BEGIN_BLOCK} = 1;
     exec 'env',cwd().'/'.$0,@ARGV;
+
+    $ENV{PATH} = $ENV{PATH}.":~/www/Portfolio";
+
+    $ENV{PORTF_DBMS} = "oracle";
+    $ENV{PORTF_DB} = "cs339";
+    $ENV{PORTF_DBUSER} = "dbe261";
+    $ENV{PORTF_DBPASS} = "guest";
   }
 }
 
