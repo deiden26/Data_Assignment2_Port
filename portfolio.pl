@@ -103,6 +103,21 @@ my @history = undef;
 my $startDate = '11/01/2005';
 my $endDate = '11/10/2005';
 
+#AutoTrading variables
+my $total = undef;
+my $startCash = undef;
+my $roi = undef; #without trading cost
+my $roiAnnual = undef; #without trading cost
+my $totalAfterTradingCost = undef;
+my $roiAtCost = undef; #with trading cost
+my $roiAnnualAtCost = undef; #with trading cost
+my $daysTraded = undef;
+my $tradeCost = undef;
+
+#Keep track of active tab
+my $historyActive = undef;
+my $predictionActive = undef;
+my $autoTradeActive = undef;
 #
 # Used for displaying form completion errors
 #
@@ -320,8 +335,30 @@ if ($action eq "history")
   $endDate = param('endDate');
   @history = getHistory($stockName, $startDate, $endDate);
   $action = 'stock';
+  $historyActive = 'active';
 }
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# History Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "autotrade")
+{
+	$stockName = param('stockName');
+	$startDate = param('startDate');
+	$endDate = param('endDate');
+	$startCash = param('startCash');
+	$tradeCost = param('tradeCost');
+	$action = 'stock';
+	($total, $roi, $roiAnnual, $totalAfterTradingCost,
+		$roiAtCost, $roiAnnualAtCost, $daysTraded) = 
+						autoTrade($stockName, $startDate, $endDate, $startCash,
+							$tradeCost);
+
+	$autoTradeActive = 'active';
+
+}
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -625,18 +662,18 @@ HTML
           <p>Variation: </p>
           <p>Beta: </p>
           <dl class="tabs" data-tab>
-            <dd class="active"><a href="#historyPanel">History</a></dd>
-            <dd><a href="#predictionPanel">Prediction</a></dd>
-            <dd><a href="#autoTradePanel">Auto-Trade</a></dd>
+            <dd class="$historyActive"><a href="#historyPanel">History</a></dd>
+            <dd class="$predictionActive"><a href="#predictionPanel">Prediction</a></dd>
+            <dd class="$autoTradeActive"><a href="#autoTradePanel">Auto-Trade</a></dd>
           </dl>
           <div class="tabs-content">
-            <div class="content active" id="historyPanel">
+            <div class="content $historyActive" id="historyPanel">
               $stockHistory
             </div>
-            <div class="content" id="predictionPanel">
+            <div class="content $predictionActive" id="predictionPanel">
               $stockHistory
             </div>
-            <div class="content" id="autoTradePanel">
+            <div class="content $autoTradeActive" id="autoTradePanel">
               $autoTrade
             </div>
           </div>
@@ -1429,7 +1466,7 @@ HTML
 sub getAutoTrade
 {
 	my ($user, $stock) = @_;
-
+	
 	my $AutoTrade = << "HTML";
     <p>Insert a date range before 2006.</p>
     <form id="autoTradeForm" action="portfolio.pl" method="get">
@@ -1448,15 +1485,26 @@ sub getAutoTrade
         </div>
         <div class="large-4 columns">
 			<label>Starting Cash
-				<input type="text" name="startCash">
+				<input type="text" name="startCash" value="$startCash">
 			</label>
 		</div>
       </div>
+	  <div class="row">
+	  	<div class="large-4 columns">
+			<label>Trading Cost/day
+				<input type="text" name="tradeCost" value="$tradeCost">
+			</label>
+		</div>
+	  </div>
       <div class="row">
         <input type="submit" class="button" value="Update">
       </div>
     </form>
-    <canvas id="stockHistoryGraph" width="400" height="400"></canvas>
+	<p>Invested: $startCash</p>
+	<p>Days: $daysTraded</p>
+	<p>Total: $total (ROI: $roi%   ROI-Annual: $roiAnnual%)</p>
+	<p>Total after \$$tradeCost/day trade costs: $totalAfterTradingCost (ROI: $roiAtCost%   ROI-Annual: $roiAnnualAtCost%)</p>
+
 HTML
 
 	return $AutoTrade;
@@ -1482,6 +1530,110 @@ sub getHistory
   return @col;
 }
 
+sub autoTrade
+{
+	my ($stockName, $startDate, $endDate, $startCash, $tradeCost) = @_;
+
+  	my ($startMonth, $startDay, $startYear) = split(/\//, $startDate);
+  	my ($endMonth, $endDay, $endYear) = split(/\//, $endDate);
+
+  	# Beginning of first day
+  	$startTimestamp = timelocal(0, 0, 0, $startDay, $startMonth-1, $startYear);
+  	# End of last day
+  	$endTimestamp = timelocal(0, 59, 23, $endDay, $endMonth-1, $endYear);
+	
+	my @stockRows;
+	eval{@stockRows = ExecSQL($dbuser, $dbpasswd, "select close from port_stocksDaily where timestamp>? and timestamp<? and symbol=?","COL",$startTimestamp,$endTimestamp, $stockName);};
+
+	return shannonRatchet(\@stockRows);
+
+}
+
+sub shannonRatchet
+{
+	my ($stockRowsScalar) = @_;
+	my @stockRows = @$stockRowsScalar;
+
+	
+	my ($initialcash,$tradecost) = ($startCash,$tradeCost);
+	
+	
+	my $lastcash=$initialcash;
+	my $laststock=0;
+	my $lasttotal=$lastcash;
+	my $lasttotalaftertradecost=$lasttotal;
+	
+	my $cash=0;
+	my $stock=0;
+	my $total=0;
+	my $totalaftertradecost=0;
+	
+	my $day=0;
+	
+	my $currenttotal;
+	my $fractioncash;
+	my $thistradecost;
+	my $redistcash;
+	my $fractionstock;
+	
+	my $roi;
+	my $roi_annual;
+	my $roi_at;
+	my $roi_at_annual;	
+	
+	foreach my $stockprice (@stockRows) { 
+	  chomp;
+	
+	  $currenttotal=$lastcash+$laststock*$stockprice;
+	  if ($currenttotal<=0) {
+	   return;
+	  }
+	  
+	  $fractioncash=$lastcash/$currenttotal;
+	  $fractionstock=($laststock*$stockprice)/$currenttotal;
+	  $thistradecost=0;
+	  if ($fractioncash >= 0.5 ) {
+	    $redistcash=($fractioncash-0.5)*$currenttotal;
+	    if ($redistcash>0) {
+	      $cash=$lastcash-$redistcash;
+	      $stock=$laststock+$redistcash/$stockprice;
+	      $thistradecost=$tradecost;
+	    } else {
+	      $cash=$lastcash;
+	      $stock=$laststock;
+	    } 
+	  }  else {
+	    $redistcash=($fractionstock-0.5)*$currenttotal;
+	    if ($redistcash>0) {
+	      $cash=$lastcash+$redistcash;
+	      $stock=$laststock-$redistcash/$stockprice;
+	      $thistradecost=$tradecost;
+	    }
+	  }
+	  
+	  $total=$cash+$stock*$stockprice;
+	  $totalaftertradecost=($lasttotalaftertradecost-$lasttotal) - $thistradecost + $total; 
+	  $lastcash=$cash;
+	  $laststock=$stock;
+	  $lasttotal=$total;
+	  $lasttotalaftertradecost=$totalaftertradecost;
+	
+	  $day++;
+	  
+	
+	}
+	
+	
+	$roi = 100.0*($lasttotal-$initialcash)/$initialcash;
+	$roi_annual = $roi/($day/365.0);
+	
+	$roi_at = 100.0*($lasttotalaftertradecost-$initialcash)/$initialcash;
+	$roi_at_annual = $roi_at/($day/365.0);
+	
+	
+	return ($total, $roi, $roi_annual,$lasttotalaftertradecost,$roi_at,$roi_at_annual,$day);
+
+}
 #
 # Check to see if user and password combination exist
 #
