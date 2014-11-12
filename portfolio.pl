@@ -294,12 +294,27 @@ if ($action eq "transferMoney")
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# withdrawMoney Logic
+# withdrawMoney & depositMoney Logic
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-if ($action eq "withdrawMoney")
+if ($action eq "withdrawMoney" or $action eq "depositMoney")
 {
-  $formError = withdrawMoney(param('portName'),param('cash'),$user);
+  $formError = withdrawDepostMoney(param('portName'),param('cash'), $action,$user);
+  if (defined $formError)
+  {
+    $showError = 'inline';
+  }
+  $action = "portfolio";
+  $run = 0;
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# buyStock & sellStock Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "buyStock" or $action eq "sellStock")
+{
+  $formError = buySellStock(param('portName'), param('symbol'), param('amount'), $action, $user);
   if (defined $formError)
   {
     $showError = 'inline';
@@ -566,10 +581,10 @@ elsif ($action eq "portfolio")
       <a href="#" data-reveal-id="depositMoney">Deposit</a>
     </li>
     <li>
-      <a href="#" data-reveal-id="sellStock">Sell</a>
+      <a href="#" data-reveal-id="buyStock">Buy</a>
     </li>
     <li>
-      <a href="#" data-reveal-id="buyStock">Buy</a>
+      <a href="#" data-reveal-id="sellStock">Sell</a>
     </li>
     <li>
       <a href="portfolio.pl?act=logout">Logout</a>
@@ -586,12 +601,73 @@ HTML
         <h2>Withdaw Money</h2>
         <form action="portfolio.pl" method="get">
           <input type="hidden" name="act" value="withdrawMoney">
-          <input type="hidden" name="portName" value="Test">
+          <input type="hidden" name="portName" value="$portName">
           <input type="hidden" name="run" value="1">
           Amount
           <input type="text" name="cash">
           <br><br>
           <input type="submit" value="Withdaw" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Deposit Money -->
+  <div id="depositMoney" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Deposit Money</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="depositMoney">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Amount
+          <input type="text" name="cash">
+          <br><br>
+          <input type="submit" value="Deposit" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Buy Stock -->
+  <div id="buyStock" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Buy Stock</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="buyStock">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Symbol
+          <input type="text" name="symbol">
+          Amount
+          <input type="text" name="amount">
+          <br><br>
+          <input type="submit" value="Buy" class="button" style="float:right;">
+        </form>
+      </div>
+    </div>
+    <a class="close-reveal-modal">&#215;</a>
+  </div>
+
+  <!-- Sell Stock -->
+  <div id="sellStock" class="reveal-modal" data-reveal>
+    <div class="row">
+      <div class="large-12 column">
+        <h2>Sell Stock</h2>
+        <form action="portfolio.pl" method="get">
+          <input type="hidden" name="act" value="sellStock">
+          <input type="hidden" name="portName" value="$portName">
+          <input type="hidden" name="run" value="1">
+          Symbol
+          <input type="text" name="symbol">
+          Amount
+          <input type="text" name="amount">
+          <br><br>
+          <input type="submit" value="Sell" class="button" style="float:right;">
         </form>
       </div>
     </div>
@@ -1107,9 +1183,13 @@ sub getCovarienceCorrelation
   return ($covarTable, $corrcoeffTable,undef);
 }
 
-sub withdrawMoney
+#
+# Transfer money out of a portfolio or into a portfolio
+#
+
+sub withdrawDepostMoney
 {
-  my ($name, $cash, $user) = @_;
+  my ($name, $cash, $option, $user) = @_;
 
   # Make sure cash is a number
   if (!looks_like_number($cash))
@@ -1117,15 +1197,144 @@ sub withdrawMoney
     return "Please enter a pure numeric value for \"Amount\"";
   }
 
-  # Deduct money from the portfolio (will return with error if insufficient funds)
-  eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$name,$user);};
+  # get the poper operator
+  my $operator;
+  if ($option eq "depositMoney")
+  {
+    $operator = '+';
+  }
+  elsif ($option eq "withdrawMoney")
+  {
+    $operator = '-';
+  }
+  else
+  {
+    return "There was a problem when transfering money. Please try again";
+  }
+
+  # Deduct/add money from/to the portfolio (will return with error if insufficient funds)
+  eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash ".$operator." ? where name=? and email=?",undef,$cash,$name,$user);};
   if($@)
   {
     return "There was a problem when transfering money. Please try again";
   }
-  
+
   return;
 }
+
+sub buySellStock
+{
+  my ($name, $symbol, $amount, $option, $user) = @_;
+
+  # Make sure cash is a number
+  if (!looks_like_number($amount))
+  {
+    return "Please enter a pure numeric value for \"Amount\"";
+  }
+
+  # Make sure the stock symbol exists in the database
+  my $col;
+  eval
+  {
+    ($col)=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksDaily where symbol=? and rownum = 1","COL",$symbol);
+  };
+  if($@ or $col<=0)
+  {
+    return "No stock with symbol: $symbol exists. Please try again.";
+  }
+
+  # Get the most recent price of the stock
+  my $stockPrice;
+  eval
+  {
+    ($stockPrice) = ExecSQL($dbuser, $dbpasswd, "select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2", "ROW",$symbol, $symbol);
+  };
+  if ($@)
+  { 
+    return $@;
+  }
+
+  # get the cash amount that the user will lose/gain from buying/selling the stocks
+  my $cash = $stockPrice*$amount;
+
+  # Buy or sell the stock
+  if ($option eq "buyStock")
+  {
+    # Deduct money from the portfolio (will return with error if insufficient funds)
+    eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$name,$user);};
+    if($@)
+    {
+      return $@;
+    }
+    # See if the user owns some of this stock
+    my $stockCount;
+    eval
+    {
+      ($stockCount) = ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksUser where name=? and email=? and symbol=?","ROW",$name,$user,$symbol);
+    };
+    if($@)
+    {
+      return $@;
+    }
+    # Add stocks to the portfolio
+    if($stockCount == 0)
+    {
+      eval {ExecSQL($dbuser,$dbpasswd, "insert into port_stocksUser (symbol, amount, name, email) values (?,?,?,?)",undef,$symbol,$amount,$name,$user);};
+    }
+    else
+    {
+      eval {ExecSQL($dbuser,$dbpasswd, "update port_stocksUser set amount = amount + ? where name=? and email=? and symbol=?",undef,$amount,$name,$user,$symbol);};      
+    }
+    if($@)
+    {
+      return $@;
+    }
+  }
+  elsif ($option eq "sellStock")
+  {
+    # Make sure the user owns some of this stock
+    my $stockCount;
+    eval
+    {
+      ($stockCount) = ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksUser where name=? and email=? and symbol=?","ROW",$name,$user,$symbol);
+    };
+    if($@)
+    {
+      return $@;
+    }
+    if ($stockCount == 0)
+    {
+      return "You do not own any stock with symbol: $symbol. Please try again.";
+    }
+
+    # Deduct stocks from the portfolio (will return with error if insufficient amount)
+    eval {ExecSQL($dbuser,$dbpasswd, "update port_stocksUser set amount = amount - ? where name=? and email=? and symbol=?",undef,$amount,$name,$user,$symbol);};
+    if($@)
+    {
+      return $@;
+    }
+    # Add money from/to the portfolio
+    eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash + ? where name=? and email=?",undef,$cash,$name,$user);};
+    if($@)
+    {
+      return $@;
+    }
+    # Remove the stock row if the user no longer owns any of this stock
+    eval {ExecSQL($dbuser,$dbpasswd, "delete from port_stocksUser where name=? and email=? and symbol=? and amount = 0",undef,$name,$user,$symbol);};
+    if($@)
+    {
+      return $@;
+    }
+  }
+  else
+  {
+    return "There was a problem when buying/selling $symbol. Please try again";
+  }
+
+
+  return;
+}
+
 
 #
 # Transfer money from one portfolio to another
