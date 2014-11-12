@@ -908,9 +908,10 @@ HTML
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my $stockHistory = getStockHistory($user, $stockName);
   my $autoTrade = getAutoTrade($user, $stockName);
-  if(1) # if !$error
-  my $predictions = getStockPredictions($user, $stockName);
-  if($stockHistory) # if !$error
+  #if(1) # if !$error
+  #my $predictions = getStockPredictions($user, $stockName);
+  my $predictions;
+  if($stockHistory || $predictions || $autoTrade) # if !$error
   {
     $pageContent = << "HTML";
 
