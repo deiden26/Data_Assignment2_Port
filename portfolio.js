@@ -10,7 +10,6 @@ $(document).ready(function() {
             if(name)
             {
          		if (pageType == 'PortfolioList') {
-         			console.log('portfoliolist');
          			window.location.href = 'portfolio.pl?act=portfolio&portName=' + name;
          		} else if (pageType == 'Portfolio') {
          			window.location.href = 'portfolio.pl?act=stock&stockName=' + name;
@@ -51,25 +50,39 @@ $(document).ready(function() {
        return false;
    });
 
-   var generateLabels = function() {
+   var generateLabels = function(historyTs) {
       var interval = 1, // 1 day interval
-         currentDate = new Date(document.getElementsByName('startDate')[0].value),
-         endDate = new Date(document.getElementsByName('endDate')[0].value),
+         currentDate,
+         dateString,
          between = [];
       
-      while (currentDate <= endDate) {
-         if (currentDate.getDay() != 0 && currentDate.getDay() != 6) {
-            between.push(currentDate.toDateString());
+      for (var j=0; j<historyTs.length; j++) {
+         currentDate = new Date(historyTs[j] * 1000 - 1000);
+         dateString = (currentDate.getMonth() + 1) + '/' + currentDate.getDate() + '/' + currentDate.getFullYear();
+         between.push(dateString);
+      }
+      
+      if (between.length > 15) {
+         var interval = 1;
+         while (between.length / interval >= 15) {
+            interval *= 2;
          }
-         currentDate.setDate(currentDate.getDate() + 1);
+         for (var i=0; i < between.length; i++) {
+            if (i%interval != 0) {
+               between[i] = "";
+            }
+         }
+         showLabels = false;
       }
       return between;
    }
 
+   var showLabels = true;
    var history = $('#historyPage').text();
-   if (history != '') {
-      history = history.split(/\s+/);
-      var labels = generateLabels();
+   var historyTs = history.split(/\s+/);
+   var historyClose = historyTs.splice(0, Math.floor(historyTs.length / 2));
+   if (historyTs.length > 0) {
+      var labels = generateLabels(historyTs);
       var data = {
          labels: labels,
          datasets: [{
@@ -79,14 +92,18 @@ $(document).ready(function() {
             pointStrokeColor: "#fff",
             pointHighlightFill: "#fff",
             pointHighlightStroke: "rgba(220,220,220,1)",
-            data: history
+            data: historyClose,
+            scaleShowGridLines: false
          }]
       };
       
       var ctx = document.getElementById("stockHistoryGraph").getContext("2d");
+      Chart.defaults.global.showTooltips = false;
+      //Chart.defaults.global.scaleShow = false;
       var lineChart = new Chart(ctx).Line(data, {
-         datasetFill: false
+         datasetFill: false,
+         scaleShowGridLines: true,
+         bezierCurve: false
       });
    }
-
 });
