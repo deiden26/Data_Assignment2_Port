@@ -101,6 +101,7 @@ my $startTimestamp = undef;
 my $endTimestamp = undef;
 my @history = undef;
 my @tsHistory = undef;
+my $predictions = undef;
 
 my $startDate = '11/01/2005';
 my $endDate = '11/10/2005';
@@ -115,6 +116,7 @@ my $roiAtCost = undef; #with trading cost
 my $roiAnnualAtCost = undef; #with trading cost
 my $daysTraded = undef;
 my $tradeCost = undef;
+
 
 #Keep track of active tab
 my $historyActive = undef;
@@ -372,7 +374,7 @@ if ($action eq "history")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# History Logic
+# Autotrade Logic
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 if ($action eq "autotrade")
@@ -391,6 +393,21 @@ if ($action eq "autotrade")
 	$autoTradeActive = 'active';
 
 }
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Prediction Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "predictions") {
+  $stockName = param('stockName');
+  my $steps = param('steps');
+
+  $predictions = getStockPredictions($stockName, $steps);
+  $action = 'stock';
+
+  $predictionActive = 'active';
+}
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -909,7 +926,7 @@ HTML
   my $stockHistory = getStockHistory($user, $stockName);
   my $autoTrade = getAutoTrade($user, $stockName);
   #if(1) # if !$error
-  my $predictions = getStockPredictions($stockName, 4);
+  #my $predictions = getStockPredictions($stockName, 4);
   if($stockHistory || $predictions || $autoTrade) # if !$error
   {
     $pageContent = << "HTML";
@@ -933,9 +950,16 @@ HTML
             </div>
             <div class="content $predictionActive" id="predictionPanel">
               <form action="portfolio.pl" method="get">
-                <input style="hidden">
+                <input type="hidden" name="act" value="predictions">
+                <input type="hidden" name="stockName" value="$stockName">
+                <label>Number of steps
+                  <input type="text" name="steps" value="">
+                </label>
+                <input type="submit" class="button" value="Submit">
               </form>
-              $predictions
+              <div id="predictions" style="display:none">$predictions</div>
+              <div id="predictionTitle"></div>
+              <canvas id="predictionsChart"></canvas>
             </div>
             <div class="content $autoTradeActive" id="autoTradePanel">
               $autoTrade

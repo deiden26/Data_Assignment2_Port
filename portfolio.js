@@ -98,7 +98,7 @@ $(document).ready(function() {
       };
       
       var ctx = document.getElementById("stockHistoryGraph").getContext("2d");
-      Chart.defaults.global.showTooltips = false;
+      //Chart.defaults.global.showTooltips = false;
       //Chart.defaults.global.scaleShow = false;
       var lineChart = new Chart(ctx).Line(data, {
          datasetFill: false,
@@ -106,4 +106,43 @@ $(document).ready(function() {
          bezierCurve: false
       });
    }
+
+   // Now make a thingy that parses through prediction data
+   var predictions = $('#predictions').text();
+   if (predictions != '') {
+      predictions = predictions.split(/\s+/);
+      var estimated = [];
+      for (var i=0, j=0; i < predictions.length; i++) {
+         if (j == 2 && predictions[i] != 0) {
+            estimated.push(predictions[i]);
+         }
+         j = (j + 1)%3;
+      }
+      var predLabels = [];
+      for (i=0; i < estimated.length; i++) {
+         predLabels[i] = i + 1;
+      }
+      var predData = {
+         labels: predLabels,
+         datasets: [{
+            label: "Predictions",
+            strokeColor: "rgba(220,220,220,1)",
+            pointColor: "rgba(220,220,220,1)",
+            pointStrokeColor: "#fff",
+            pointHighlightFill: "#fff",
+            pointHighlightStroke: "rgba(220,220,220,1)",
+            data: estimated,
+            scaleShowGridLines: false
+         }] 
+      }
+      var ctxPred = document.getElementById("predictionsChart").getContext("2d");
+      var predictionChart = new Chart(ctxPred).Line(predData, {
+         datasetFill: false,
+         bezierCurve: false
+      });
+      if (predictionChart != null) {
+         $("#predictionTitle").html("<h4>Predictions for the next " + estimated.length + " days:</h4>");
+      }
+   }
+
 });
