@@ -929,9 +929,9 @@ HTML
   # my ($strStock, $strCov, $error) = getPortfolio($user, $portName, "table");
   my $stockHistory = getStockHistory($user, $stockName);
   my $autoTrade = getAutoTrade($user, $stockName);
-  #if(1) # if !$error
+  my ($price, $variation, $beta, $formError) = getStockValues($stockName);
   my $predictions = getStockPredictions($stockName, 4);
-  if($stockHistory || $predictions || $autoTrade) # if !$error
+  if($stockHistory && $predictions && $autoTrade && $price) # if !$error
   {
     $pageContent = << "HTML";
 
@@ -940,9 +940,9 @@ HTML
         <div class="large-12 column">
           <h2>$stockName</h2>
           <div class="pageType" style="display:none">Stock</div>
-          <p>Price: </p>
-          <p>Variation: </p>
-          <p>Beta: </p>
+          <p>Price: $price</p>
+          <p>Variation: $variation</p>
+          <p>Beta: $beta</p>
           <dl class="tabs" data-tab>
             <dd class="$historyActive"><a href="#historyPanel">History</a></dd>
             <dd class="$predictionActive"><a href="#predictionPanel">Prediction</a></dd>
@@ -1602,7 +1602,7 @@ sub getPortfolio
   my @cash;
   eval
   {
-    @cash = ExecSQL($dbuser, $dbpasswd, "select cash from port_portfolio where email = ?", "ROW", $user);
+    @cash = ExecSQL($dbuser, $dbpasswd, "select cash from port_portfolio where email = ? and name = ?", "ROW", $user, $portName);
   };
   if ($@)
   { 
@@ -1665,72 +1665,14 @@ sub getPortfolio
     push(@$_, sprintf('%3.4f',$coeffVariation[0]));
 
     # Get the stocks beta
-
-    # Find out if the beta for this stock has a cached value for the stock data currently available
-    eval
-    {
-      ($count) = ExecSQL($dbuser,$dbpasswd,"select count(*) from port_stocksDaily where symbol=?","COL",$stockSymbol);
-      ($entries, $beta) = ExecSQL($dbuser,$dbpasswd,"select entries, beta from port_betaCache where symbol=?","ROW",$stockSymbol);
-    };
-    if ($@)
+    my ($beta,$err) = getBeta($stockSymbol);
+    if (defined $err)
     {
       return (undef,undef,undef,undef,$@);
     }
-    # If the beta value hasn't been cached since new data was added, calculate it
-    if(!(defined $entries) or $count != $entries)
-    {
-      eval
-      {
-        ($mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=?","ROW",$stockSymbol);
-      };
-      if ($@)
-      { 
-        return (undef,undef,undef,undef,$@);
-      }
-
-      if (!(defined $std_f1) or !(defined $std_f2) or $std_f1 == 0 or $std_f2 == 0)
-      {
-        $beta = 'NODAT';
-      }
-      else
-      {
-        eval
-        {
-          ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
-        };
-        if ($@)
-        { 
-          return (undef,undef,undef,undef,$@);
-        }
-        $beta = $covar/($std_f1*$std_f2);
-        # Store the beta value in the cache
-        eval
-        {
-          if (defined $entries)
-          {
-            ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
-          }
-          else
-          {
-            ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
-          }
-        };
-        if ($@)
-        { 
-          return (undef,undef,undef,undef,$@);
-        }
-      }
-    }
 
     # Push the stock's beta into the stockRow
-    if ($beta eq 'NODAT')
-    {
-      push(@$_, $beta);
-    }
-    else
-    {
-      push(@$_, sprintf('%3.4f',$beta));
-    }
+    push(@$_, $beta);
 
   }
 
@@ -1748,6 +1690,52 @@ sub getPortfolio
     @stockRows),
     $@);
     
+}
+
+sub getStockValues
+{
+  my ($symbol) = @_;
+  my @return;
+
+  # Get the most recent price of the stock
+  my $stockPrice;
+  eval
+  {
+    ($stockPrice) = ExecSQL($dbuser, $dbpasswd, "select close from (select close, timestamp from port_stocksDaily where symbol = ?) sd1 natural join (select max(timestamp) timestamp from port_stocksDaily where symbol = ?) sd2", "COL",$symbol, $symbol);
+  };
+  if ($@)
+  { 
+    return (undef,undef,undef$@);
+  }
+  # Push the stock's price into the return value
+  push(@return, sprintf('%3.2f',$stockPrice));
+
+  # Get the stock's coefficient of variation
+  my $coeffVariation;
+  eval
+  {
+    ($coeffVariation) = ExecSQL($dbuser, $dbpasswd, "select stddev(close)/avg(close) from port_stocksDaily where symbol=?","ROW",$symbol);
+  };
+  if ($@)
+  { 
+    return (undef,undef,undef,$@);
+  }
+  # Push the stock's coefficient of variation into the return value
+  push(@return, sprintf('%3.4f',$coeffVariation));
+
+  # Get the stock's beta
+  my ($beta,$err) = getBeta($symbol);
+  if (defined $err)
+  {
+    return (undef,undef,undef,$err);
+  }
+  # Push the stock's coefficient of variation into the return value
+  push(@return, sprintf('%3.4f',$beta));
+
+  #Push a undef value for the error
+  push(@return, undef);
+
+  return @return;
 }
 
 sub getStockPredictions
@@ -2002,6 +1990,88 @@ sub Login_Register
   }
 }
 
+#
+# Get the stocks beta
+#
+sub getBeta
+{
+
+  # Get Input
+  my ($stockSymbol) = @_;
+
+  # Initialize variables
+  my ($mean_f1,$std_f1, $mean_f2, $std_f2);
+  my $covar;
+  my $beta;
+  my $count;
+  my $entries;
+
+  # Find out if the beta for this stock has a cached value for the stock data currently available
+  eval
+  {
+    ($count) = ExecSQL($dbuser,$dbpasswd,"select count(*) from port_stocksDaily where symbol=?","COL",$stockSymbol);
+    ($entries, $beta) = ExecSQL($dbuser,$dbpasswd,"select entries, beta from port_betaCache where symbol=?","ROW",$stockSymbol);
+  };
+  if ($@)
+  {
+    return (undef,$@);
+  }
+  # If the beta value hasn't been cached since new data was added, calculate it
+  if(!(defined $entries) or $count != $entries)
+  {
+    eval
+    {
+      ($mean_f1,$std_f1, $mean_f2, $std_f2) = ExecSQL($dbuser,$dbpasswd,"select avg(s1.close),stddev(s1.close), avg(s2.close), stddev(s2.close) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp = s2.timestamp where s1.symbol=?","ROW",$stockSymbol);
+    };
+    if ($@)
+    { 
+      return (undef,$@);
+    }
+
+    if (!(defined $std_f1) or !(defined $std_f2) or $std_f1 == 0 or $std_f2 == 0)
+    {
+      $beta = 'NODAT';
+    }
+    else
+    {
+      eval
+      {
+        ($covar) = ExecSQL($dbuser,$dbpasswd,"select avg( (s1.close - ?)*(s2.close - ?) ) from port_stocksDaily s1 join port_stocksDaily s2 on s1.timestamp=s2.timestamp where s1.symbol=?", "COL",$mean_f1,$mean_f2,$stockSymbol);
+      };
+      if ($@)
+      { 
+        return (undef,$@);
+      }
+      $beta = $covar/($std_f1*$std_f2);
+      # Store the beta value in the cache
+      eval
+      {
+        if (defined $entries)
+        {
+          ExecSQL($dbuser,$dbpasswd,"update port_betaCache set symbol=?, beta=?, entries=? where symbol=?", undef,$stockSymbol, $beta, $count, $stockSymbol);
+        }
+        else
+        {
+          ExecSQL($dbuser,$dbpasswd,"insert into port_betaCache (symbol, beta, entries) values (?,?,?)", undef,$stockSymbol, $beta, $count);          
+        }
+      };
+      if ($@)
+      { 
+        return (undef,$@);
+      }
+    }
+  }
+
+  # Return the beta value
+  if ($beta eq 'NODAT')
+  {
+    return ($beta, undef)
+  }
+  else
+  {
+    return (sprintf('%3.4f',$beta), undef)
+  }
+}
 
 #
 # Given a list of scalars, or a list of references to lists, generates
