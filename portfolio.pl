@@ -101,6 +101,7 @@ my $startTimestamp = undef;
 my $endTimestamp = undef;
 my @history = undef;
 my @tsHistory = undef;
+my $predictions = undef;
 
 my $startDate = '11/01/2005';
 my $endDate = '11/10/2005';
@@ -115,6 +116,7 @@ my $roiAtCost = undef; #with trading cost
 my $roiAnnualAtCost = undef; #with trading cost
 my $daysTraded = undef;
 my $tradeCost = undef;
+
 
 #Keep track of active tab
 my $historyActive = undef;
@@ -372,7 +374,7 @@ if ($action eq "history")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# History Logic
+# Autotrade Logic
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 if ($action eq "autotrade")
@@ -391,6 +393,21 @@ if ($action eq "autotrade")
 	$autoTradeActive = 'active';
 
 }
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# Prediction Logic
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+if ($action eq "predictions") {
+  $stockName = param('stockName');
+  my $steps = param('steps');
+
+  $predictions = getStockPredictions($stockName, $steps);
+  $action = 'stock';
+
+  $predictionActive = 'active';
+}
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Cookie Management
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
@@ -930,8 +947,7 @@ HTML
   my $stockHistory = getStockHistory($user, $stockName);
   my $autoTrade = getAutoTrade($user, $stockName);
   my ($price, $variation, $beta, $formError) = getStockValues($stockName);
-  my $predictions = getStockPredictions($stockName, 4);
-  if($stockHistory && $predictions && $autoTrade && $price) # if !$error
+  if($stockHistory && $autoTrade && $price) # if !$error
   {
     $pageContent = << "HTML";
 
@@ -940,9 +956,9 @@ HTML
         <div class="large-12 column">
           <h2>$stockName</h2>
           <div class="pageType" style="display:none">Stock</div>
-          <p>Price: $price</p>
-          <p>Variation: $variation</p>
-          <p>Beta: $beta</p>
+          <p><b>Price:</b> $price</p>
+          <p><b>Variation:</b> $variation</p>
+          <p><b>Beta:</b> $beta</p>
           <dl class="tabs" data-tab>
             <dd class="$historyActive"><a href="#historyPanel">History</a></dd>
             <dd class="$predictionActive"><a href="#predictionPanel">Prediction</a></dd>
@@ -954,9 +970,16 @@ HTML
             </div>
             <div class="content $predictionActive" id="predictionPanel">
               <form action="portfolio.pl" method="get">
-                <input style="hidden">
+                <input type="hidden" name="act" value="predictions">
+                <input type="hidden" name="stockName" value="$stockName">
+                <label>Number of steps
+                  <input type="text" name="steps" value="">
+                </label>
+                <input type="submit" class="button" value="Submit">
               </form>
-              $predictions
+              <div id="predictions" style="display:none">$predictions</div>
+              <div id="predictionTitle"></div>
+              <canvas id="predictionsChart"></canvas>
             </div>
             <div class="content $autoTradeActive" id="autoTradePanel">
               $autoTrade
@@ -976,7 +999,7 @@ HTML
 
     <div>
       <br>
-      <small class="error error-bar">$formError</small>
+      <small class="error error-bar"></small>
       <br>
     </div>
 
@@ -1790,12 +1813,12 @@ sub getAutoTrade
       <input type="hidden" name="stockName" value=$stock>
       <div class="row">
         <div class="large-4 columns">
-          <label>Start date
+          <label>Start Date
             <input class="datePicker" type="text" name="startDate" value="$startDate">
           </label>
         </div>
         <div class="large-4 columns">
-          <label>End date
+          <label>End Date
             <input class="datePicker" type="text" name="endDate" value="$endDate">
           </label>
         </div>
@@ -1807,7 +1830,7 @@ sub getAutoTrade
       </div>
 	  <div class="row">
 	  	<div class="large-4 columns">
-			<label>Trading Cost/day
+			<label>Trading Cost per Day
 				<input type="text" name="tradeCost" value="$tradeCost">
 			</label>
 		</div>
@@ -1816,10 +1839,14 @@ sub getAutoTrade
         <input type="submit" class="button" value="Update">
       </div>
     </form>
-	<p>Invested: $startCash</p>
-	<p>Days: $daysTraded</p>
-	<p>Total: $total (ROI: $roi%   ROI-Annual: $roiAnnual%)</p>
-	<p>Total after \$$tradeCost/day trade costs: $totalAfterTradingCost (ROI: $roiAtCost%   ROI-Annual: $roiAnnualAtCost%)</p>
+	<p><b>Invested:</b> $startCash</p>
+	<p><b>Days:</b> $daysTraded</p>
+	<p><b>Total:</b> $total</p>
+  <p style="padding-left:20px;"><b>ROI:</b> $roi%</p>
+  <p style="padding-left:20px;"><b>ROI-Annual:</b> $roiAnnual%</p>
+	<p><b>Total after trade costs:</b> $totalAfterTradingCost
+  <p style="padding-left:20px;"><b>ROI:</b> $roiAtCost%</p>
+  <p style="padding-left:20px;"><b>ROI-Annual:</b> $roiAnnualAtCost%</p>
 
 HTML
 
