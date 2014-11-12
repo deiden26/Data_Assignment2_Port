@@ -1350,7 +1350,10 @@ sub buySellStock
   if ($option eq "buyStock")
   {
     # Deduct money from the portfolio (will return with error if insufficient funds)
-    eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$name,$user);};
+    eval {
+		ExecSQL($dbuser,$dbpasswd, "SAVEPOINT buy_save",undef);
+		return $@ if ($@);
+		ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$name,$user);};
     if($@)
     {
       return $@;
@@ -1363,7 +1366,9 @@ sub buySellStock
     };
     if($@)
     {
-      return $@;
+		my $error = $@;
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to buy_save",undef);};
+      return $error;
     }
     # Add stocks to the portfolio
     if($stockCount == 0)
@@ -1376,8 +1381,14 @@ sub buySellStock
     }
     if($@)
     {
-      return $@;
-    }
+		my $error = $@;
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to buy_save",undef);};
+        return $error;
+    }else{		
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to buy_save",undef);};
+		eval{ExecSQL($dbuser,$dbpasswd,"COMMIT",undef);};
+		return $@ if $@;
+	}
   }
   elsif ($option eq "sellStock")
   {
@@ -1385,6 +1396,8 @@ sub buySellStock
     my $stockCount;
     eval
     {
+		ExecSQL($dbuser,$dbpasswd, "SAVEPOINT sell_save",undef);
+		return $@ if ($@);
       ($stockCount) = ExecSQL($dbuser,$dbpasswd, "select count(*) from port_stocksUser where name=? and email=? and symbol=?","ROW",$name,$user,$symbol);
     };
     if($@)
@@ -1400,20 +1413,30 @@ sub buySellStock
     eval {ExecSQL($dbuser,$dbpasswd, "update port_stocksUser set amount = amount - ? where name=? and email=? and symbol=?",undef,$amount,$name,$user,$symbol);};
     if($@)
     {
-      return $@;
+		my $error = $@;
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to sell_save",undef);};
+      return $error;
     }
     # Add money from/to the portfolio
     eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash + ? where name=? and email=?",undef,$cash,$name,$user);};
     if($@)
     {
-      return $@;
+		my $error = $@;
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to sell_save",undef);};
+      return $error;
     }
     # Remove the stock row if the user no longer owns any of this stock
     eval {ExecSQL($dbuser,$dbpasswd, "delete from port_stocksUser where name=? and email=? and symbol=? and amount = 0",undef,$name,$user,$symbol);};
     if($@)
     {
-      return $@;
-    }
+		my $error = $@;
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to sell_save",undef);};
+      return $error;
+    }else{		
+		eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to sell_save",undef);};
+		eval{ExecSQL($dbuser,$dbpasswd,"COMMIT",undef);};
+		return $@ if $@;
+	}
   }
   else
   {
@@ -1441,7 +1464,9 @@ sub transferMoney
 
   # Make sure that both portfolio names are valid
   my @col;
-  eval {@col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_portfolio where email=? and name in (?,?)","COL",$user,$nameMinus,$namePlus);};
+  eval {
+	  ExecSQL($dbuser,$dbpasswd,"SAVEPOINT transfer_save",undef);
+	  @col=ExecSQL($dbuser,$dbpasswd, "select count(*) from port_portfolio where email=? and name in (?,?)","COL",$user,$nameMinus,$namePlus);};
   if($@ or $col[0]<2)
   {
     return "There was a problem when transfering money. Please try again";
@@ -1451,6 +1476,7 @@ sub transferMoney
   eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash - ? where name=? and email=?",undef,$cash,$nameMinus,$user);};
   if($@)
   {
+	eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to transfer_save",undef);};
     return "There was a problem when transfering money. Please try again";
   }
 
@@ -1458,7 +1484,11 @@ sub transferMoney
   eval {ExecSQL($dbuser,$dbpasswd, "update port_portfolio set cash = cash + ? where name=? and email=?",undef,$cash,$namePlus,$user);};
   if($@)
   {
+	eval{ExecSQL($dbuser,$dbpasswd,"ROLLBACK to transfer_save",undef);};
     return "There was a problem when transfering money. Please try again";
+  }else{
+	eval{ExecSQL($dbuser,$dbpasswd,"COMMIT",undef);};
+	return $@ if $@;
   }
 
   return; 
