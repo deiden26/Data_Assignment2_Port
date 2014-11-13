@@ -122,8 +122,13 @@ $(document).ready(function() {
          j = (j + 1)%3;
       }
       var predLabels = [];
+      var tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
       for (i=0; i < estimated.length; i++) {
-         predLabels[i] = i + 1;
+         if (tomorrow.getDay() != 0 && tomorrow.getDay() != 6) {
+            predLabels[i] = (tomorrow.getMonth()+1) + '/' + tomorrow.getDate() + '/' + tomorrow.getFullYear();
+         } else i--;
+         tomorrow.setDate(tomorrow.getDate() + 1);
       }
       var predData = {
          labels: predLabels,
