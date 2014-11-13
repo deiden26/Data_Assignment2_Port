@@ -501,7 +501,7 @@ if ($action eq "login")
         <a href="ER.pdf" download="ER.pdf">ER Diagram</a>
       </div>
       <div class="large-2 column">
-        <a href="Story Board.pdf" download="Story Board.pdf">Relational Model</a>
+        <a href="RelationalModel.pdf" download="RelationalModel.pdf">Relational Model</a>
       </div>
       <div class="large-2 column">
         <a href="setup.sql" download="setup.sql">SQL DDL</a>
