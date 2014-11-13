@@ -498,7 +498,7 @@ if ($action eq "login")
         <a href="Story Board.pdf" download="Story Board.pdf">Story Board</a>
       </div>
       <div class="large-2 column">
-        <a href="Story Board.pdf" download="Story Board.pdf">ER Diagram</a>
+        <a href="ER.pdf" download="ER.pdf">ER Diagram</a>
       </div>
       <div class="large-2 column">
         <a href="Story Board.pdf" download="Story Board.pdf">Relational Model</a>
