@@ -979,7 +979,9 @@ HTML
               </form>
               <div id="predictions" style="display:none">$predictions</div>
               <div id="predictionTitle"></div>
-              <canvas id="predictionsChart"></canvas>
+              <div id="predictionsChartDiv">
+                <canvas id="predictionsChart"></canvas>
+              </div>
             </div>
             <div class="content $autoTradeActive" id="autoTradePanel">
               $autoTrade
@@ -1825,7 +1827,9 @@ sub getStockHistory
         <input type="submit" class="button" value="Update">
       </div>
     </form>
-    <canvas id="stockHistoryGraph" width="400" height="400"></canvas>
+    <div id="stockHistoryGraphDiv">
+      <canvas id="stockHistoryGraph" width="400" height="400"></canvas>
+    </div>
 HTML
 
   # now we need a graph plotting time for these dates as well as their price

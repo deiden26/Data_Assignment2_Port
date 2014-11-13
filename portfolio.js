@@ -98,11 +98,14 @@ $(document).ready(function() {
       };
       
       var ctx = document.getElementById("stockHistoryGraph").getContext("2d");
-      //Chart.defaults.global.showTooltips = false;
+      ctx.canvas.width = document.getElementById("stockHistoryGraphDiv").offsetWidth;
+      Chart.defaults.global.showTooltips = false;
+      Chart.defaults.global.animation = false;
       //Chart.defaults.global.scaleShow = false;
       var lineChart = new Chart(ctx).Line(data, {
          datasetFill: false,
-         scaleShowGridLines: true,
+         scaleShowGridLines: false,
+         pointDot : false,
          bezierCurve: false
       });
    }
@@ -136,8 +139,11 @@ $(document).ready(function() {
          }] 
       }
       var ctxPred = document.getElementById("predictionsChart").getContext("2d");
+      ctxPred.canvas.width = document.getElementById("predictionsChartDiv").offsetWidth;
       var predictionChart = new Chart(ctxPred).Line(predData, {
          datasetFill: false,
+         scaleShowGridLines: false,
+         pointDot : false,
          bezierCurve: false
       });
       if (predictionChart != null) {
